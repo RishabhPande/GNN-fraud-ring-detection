@@ -1,0 +1,11 @@
+[project]
+name = "gnn-fraud"
+version = "0.1.0"
+description = "GraphSAGE for fraud detection, from scratch in pure Python"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Rishabh Pande"}]
+license = {text = "MIT"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
