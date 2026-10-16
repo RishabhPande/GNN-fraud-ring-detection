@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 
+from gnn_fraud.gat import GraphAttention
 from gnn_fraud.sage import GraphSAGE
 
 
@@ -23,7 +24,7 @@ def train_val_split(labels: list[int], val_frac: float = 0.2,
     return train, val
 
 
-def _val_loss(model: GraphSAGE, graph, val_ids: list[int]) -> float:
+def _val_loss(model, graph, val_ids: list[int]) -> float:
     import math
 
     probs = model.predict(graph, val_ids)
@@ -35,41 +36,25 @@ def _val_loss(model: GraphSAGE, graph, val_ids: list[int]) -> float:
     return total / len(val_ids)
 
 
-def train_sage(
+def _train_loop(
+    model,
     graph,
-    train_ids: list[int] | None = None,
-    val_ids: list[int] | None = None,
-    hidden_dim: int = 16,
-    k1: int = 3,
-    k2: int = 3,
-    lr: float = 0.1,
-    batch_size: int = 64,
-    epochs: int = 30,
-    patience: int = 5,
-    seed: int = 0,
-    pos_weight: float | None = None,
-) -> tuple[GraphSAGE, dict]:
-    """Train a 2-layer GraphSAGE with neighbor-sampled mini-batches.
-
-    Early-stops on validation loss and restores the best checkpoint.
-    Returns (model, history) where history holds per-epoch train/val loss.
-
-    Args:
-        pos_weight: upweighting of fraud examples in the training loss.
-            Defaults to #neg/#pos on the training set (standard for
-            imbalanced fraud data).
-    """
-    if train_ids is None or val_ids is None:
-        train_ids, val_ids = train_val_split(graph.labels, seed=seed)
+    train_ids: list[int],
+    val_ids: list[int],
+    k1: int,
+    k2: int,
+    batch_size: int,
+    epochs: int,
+    patience: int,
+    seed: int,
+    pos_weight: float,
+):
+    """Shared mini-batch loop: early-stop on validation loss, restore best."""
     labels = {v: graph.labels[v] for v in train_ids}
-    if pos_weight is None:
-        # Fraud data is imbalanced; a modest upweighting keeps the model
-        # from collapsing to the base rate. (The full neg/pos ratio
-        # over-corrects and predicts positive for everything.)
-        pos_weight = 3.0
-
-    model = GraphSAGE(graph.feature_dim, hidden_dim=hidden_dim, lr=lr, seed=seed)
     rng = random.Random(seed)
+    # Copy: shuffling must not reorder the caller's list, or training a
+    # second model on the same ids would see a different batch sequence.
+    train_ids = list(train_ids)
     history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
 
     best_val = float("inf")
@@ -101,3 +86,75 @@ def train_sage(
     if best_state is not None:
         model.load_state_dict(best_state)
     return model, history
+
+
+def train_sage(
+    graph,
+    train_ids: list[int] | None = None,
+    val_ids: list[int] | None = None,
+    hidden_dim: int = 16,
+    k1: int = 3,
+    k2: int = 3,
+    lr: float = 0.1,
+    batch_size: int = 64,
+    epochs: int = 30,
+    patience: int = 5,
+    seed: int = 0,
+    pos_weight: float | None = None,
+) -> tuple[GraphSAGE, dict]:
+    """Train a 2-layer GraphSAGE with neighbor-sampled mini-batches.
+
+    Early-stops on validation loss and restores the best checkpoint.
+    Returns (model, history) where history holds per-epoch train/val loss.
+
+    Args:
+        pos_weight: upweighting of fraud examples in the training loss.
+            Defaults to #neg/#pos on the training set (standard for
+            imbalanced fraud data).
+    """
+    if train_ids is None or val_ids is None:
+        train_ids, val_ids = train_val_split(graph.labels, seed=seed)
+    if pos_weight is None:
+        # Fraud data is imbalanced; a modest upweighting keeps the model
+        # from collapsing to the base rate. (The full neg/pos ratio
+        # over-corrects and predicts positive for everything.)
+        pos_weight = 3.0
+
+    model = GraphSAGE(graph.feature_dim, hidden_dim=hidden_dim, lr=lr, seed=seed)
+    return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
+                       epochs, patience, seed, pos_weight)
+
+
+def train_gat(
+    graph,
+    train_ids: list[int] | None = None,
+    val_ids: list[int] | None = None,
+    hidden_dim: int = 16,
+    k1: int = 3,
+    k2: int = 3,
+    lr: float = 0.1,
+    batch_size: int = 64,
+    epochs: int = 30,
+    patience: int = 5,
+    seed: int = 0,
+    pos_weight: float | None = None,
+    negative_slope: float = 0.2,
+) -> tuple[GraphAttention, dict]:
+    """Train a 2-layer single-head GAT with neighbor-sampled mini-batches.
+
+    Same protocol as :func:`train_sage` (early stopping on validation
+    loss, best-checkpoint restore). Returns (model, history).
+
+    Args:
+        negative_slope: LeakyReLU slope used in the attention mechanism.
+        pos_weight: upweighting of fraud examples in the training loss.
+    """
+    if train_ids is None or val_ids is None:
+        train_ids, val_ids = train_val_split(graph.labels, seed=seed)
+    if pos_weight is None:
+        pos_weight = 3.0
+
+    model = GraphAttention(graph.feature_dim, hidden_dim=hidden_dim, lr=lr,
+                           seed=seed, negative_slope=negative_slope)
+    return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
+                       epochs, patience, seed, pos_weight)

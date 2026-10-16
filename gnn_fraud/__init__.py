@@ -13,15 +13,18 @@ from gnn_fraud.evaluate import (
     precision_recall_f1,
     roc_auc,
 )
+from gnn_fraud.gat import GATLayer, GraphAttention
 from gnn_fraud.generator import FEATURE_NAMES, GraphGenerator
 from gnn_fraud.graph import Graph
 from gnn_fraud.sage import GraphSAGE, SAGELayer
-from gnn_fraud.train import train_sage, train_val_split
+from gnn_fraud.train import train_gat, train_sage, train_val_split
 
 __all__ = [
     "FEATURE_NAMES",
     "MLP",
+    "GATLayer",
     "Graph",
+    "GraphAttention",
     "GraphGenerator",
     "GraphSAGE",
     "SAGELayer",
@@ -29,6 +32,7 @@ __all__ = [
     "evaluate_all",
     "precision_recall_f1",
     "roc_auc",
+    "train_gat",
     "train_mlp",
     "train_sage",
     "train_val_split",

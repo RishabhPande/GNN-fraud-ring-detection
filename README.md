@@ -49,6 +49,12 @@ probs = model.predict(g, val_ids)   # full-neighborhood inference
    imbalanced; without it the model collapses to the base rate — the same
    fix production systems use). Mini-batches sample up to k neighbors per
    node per layer, so training is O(batch·k²), not O(full 2-hop).
+2b. **Attend** (`gnn_fraud/gat.py`) — a two-layer single-head GAT with the
+   same protocol: `α_vu = softmax(LeakyReLU(aᵀ[Wh_v‖Wh_u]))`,
+   `h'_v = relu(Σ_u α_vu·Wh_u + b)`, full backprop through the attention
+   (numeric-gradient-checked). `GraphAttention.attention_weights(v)`
+   returns the per-layer α distributions — a readable explanation of
+   *which counterparties* drove an account's score.
 3. **Train** (`gnn_fraud/train.py`) — mini-batch SGD, stratified
    train/val split, early stopping on validation loss with best-checkpoint
    restore.
@@ -67,12 +73,29 @@ GraphSAGE (2-layer, mean agg)  0.28     1.000   0.750   0.857   0.978
 MLP (features only)            0.41     1.000   0.250   0.400   0.683
 ```
 
+`examples/gat_example.py` runs the same graph through the GAT
+(seed 7; GAT trains with a larger lr=0.5 — its attention parameters only
+receive gradient through the softmax, which damps updates):
+
+```
+model                          thr precision  recall      F1     AUC
+GraphSAGE (2-layer, mean agg)  0.28     1.000   0.750   0.857   0.978
+GAT (2-layer, attention)       0.29     0.667   1.000   0.800   0.967
+```
+
+Honest finding: the GAT matches GraphSAGE but its learned attention stays
+near-uniform (entropy gap vs uniform ≈ 0 nats on the top-scored ring
+member). That's the camouflage doing its job — every counterparty looks
+alike, so the signal lives in the *neighborhood mean*, not in any single
+neighbor, and attention converges to the mean. Attention earns its keep
+where neighbors differ; see the heterogeneous-graphs roadmap item.
+
 ## Roadmap
 
 - [x] Two-layer GraphSAGE with mean aggregation, from scratch
 - [x] Neighbor-sampled mini-batch training + early stopping
 - [x] Feature-only MLP baseline showing the graph signal matters
-- [ ] GAT attention layer (learn *which* neighbors matter, not just the mean)
+- [x] GAT attention layer (learn *which* neighbors matter, not just the mean)
 - [ ] Heterogeneous graphs (accounts, devices, merchants as distinct node types)
 - [ ] Inductive evaluation on unseen nodes (GraphSAGE's real strength)
 - [ ] Temporal edges: rings form fast — add edge timestamps and recency weighting
@@ -87,3 +110,7 @@ Covers hand-computed forward/backward passes on a tiny graph, loss
 decrease during training, ring planting + feature camouflage in the
 generator, metric correctness on known cases, neighbor-sampling bounds,
 and the headline claim: the GNN's AUC beats the feature-only baseline.
+The GAT suite adds hand-computed attention weights, a central-difference
+gradient check of the full attention backward pass, attention-as-mean
+degeneration with zeroed attention vectors, and attention-weight
+distributions summing to 1.
