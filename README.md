@@ -55,6 +55,18 @@ probs = model.predict(g, val_ids)   # full-neighborhood inference
    (numeric-gradient-checked). `GraphAttention.attention_weights(v)`
    returns the per-layer α distributions — a readable explanation of
    *which counterparties* drove an account's score.
+2c. **Relate** (`gnn_fraud/rsage.py`) — a two-layer R-GCN-lite over a
+   *heterogeneous* graph (`gnn_fraud/hetero.py`): accounts, devices, and
+   merchants as distinct node types, wired by typed relations
+   (`uses`, `pays`, `transfers`, + reverses). Each relation gets its own
+   message matrix — a shared *device* means something different from a
+   shared *counterparty* — and each node type gets its own self matrix,
+   so different feature dimensions project into one hidden space. Only
+   accounts are scored. The generator (`gnn_fraud/hetero_gen.py`) plants
+   a ring that shares 3 devices and 4 merchants: individually deniable
+   (households share devices too), collectively damning. `train_hetero`
+   uses the same mini-batch + early-stopping protocol, splitting only
+   account nodes.
 3. **Train** (`gnn_fraud/train.py`) — mini-batch SGD, stratified
    train/val split, early stopping on validation loss with best-checkpoint
    restore.
@@ -88,7 +100,25 @@ near-uniform (entropy gap vs uniform ≈ 0 nats on the top-scored ring
 member). That's the camouflage doing its job — every counterparty looks
 alike, so the signal lives in the *neighborhood mean*, not in any single
 neighbor, and attention converges to the mean. Attention earns its keep
-where neighbors differ; see the heterogeneous-graphs roadmap item.
+where neighbors differ — which is exactly what the heterogeneous graph
+below provides: a shared *device* is a different kind of neighbor than a
+shared *counterparty*, and per-relation weights learn the difference.
+
+`examples/hetero_example.py` runs the same protocol on the heterogeneous
+graph (seed 7; ring shares 3 devices and 4 merchants). The cross-type
+signal is far stronger than camouflaged account features alone:
+
+```
+model                                thr precision  recall      F1     AUC
+Relational GraphSAGE (hetero)       0.31     0.800   1.000   0.889   0.994
+MLP (account features only)         0.23     0.286   0.500   0.364   0.656
+```
+
+Honest caveat: the gap is this wide *because* the generator plants a
+loud device-sharing pattern. Real rings launder through shared devices
+far more subtly — the point here is the mechanism, not the magnitude:
+per-relation message weights learn which *kind* of neighbor carries the
+signal.
 
 ## Roadmap
 
@@ -96,7 +126,7 @@ where neighbors differ; see the heterogeneous-graphs roadmap item.
 - [x] Neighbor-sampled mini-batch training + early stopping
 - [x] Feature-only MLP baseline showing the graph signal matters
 - [x] GAT attention layer (learn *which* neighbors matter, not just the mean)
-- [ ] Heterogeneous graphs (accounts, devices, merchants as distinct node types)
+- [x] Heterogeneous graphs (accounts, devices, merchants as distinct node types)
 - [ ] Inductive evaluation on unseen nodes (GraphSAGE's real strength)
 - [ ] Temporal edges: rings form fast — add edge timestamps and recency weighting
 
@@ -113,4 +143,10 @@ and the headline claim: the GNN's AUC beats the feature-only baseline.
 The GAT suite adds hand-computed attention weights, a central-difference
 gradient check of the full attention backward pass, attention-as-mean
 degeneration with zeroed attention vectors, and attention-weight
-distributions summing to 1.
+distributions summing to 1. The hetero suite adds typed-graph structure
+and relation symmetry, the shared-device planting signal, hand-computed
+forward/backward of the relational layer, a central-difference gradient
+check of all per-type and per-relation parameters, per-relation sampling
+bounds, and the headline claim: the relational model's AUC beats the
+feature-only baseline by a wide margin on the planted device-sharing
+pattern.

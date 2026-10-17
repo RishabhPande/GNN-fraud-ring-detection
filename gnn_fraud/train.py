@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 
 from gnn_fraud.gat import GraphAttention
+from gnn_fraud.rsage import RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE
 
 
@@ -156,5 +157,41 @@ def train_gat(
 
     model = GraphAttention(graph.feature_dim, hidden_dim=hidden_dim, lr=lr,
                            seed=seed, negative_slope=negative_slope)
+    return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
+                       epochs, patience, seed, pos_weight)
+
+
+def train_hetero(
+    graph,
+    train_ids: list[int] | None = None,
+    val_ids: list[int] | None = None,
+    hidden_dim: int = 16,
+    k1: int = 3,
+    k2: int = 3,
+    lr: float = 0.1,
+    batch_size: int = 64,
+    epochs: int = 30,
+    patience: int = 5,
+    seed: int = 0,
+    pos_weight: float | None = None,
+) -> tuple[RelationalGraphSAGE, dict]:
+    """Train a 2-layer relational GraphSAGE on a heterogeneous graph.
+
+    Only account nodes are split, scored, and supervised; devices and
+    merchants participate in message passing but are never labeled.
+    Otherwise the same protocol as :func:`train_sage` (neighbor-sampled
+    mini-batches, early stopping on validation loss, best-checkpoint
+    restore).
+    """
+    accounts = graph.account_ids()
+    if train_ids is None or val_ids is None:
+        tr, va = train_val_split([graph.labels[v] for v in accounts],
+                                 seed=seed)
+        train_ids, val_ids = [accounts[i] for i in tr], [accounts[i] for i in va]
+    if pos_weight is None:
+        pos_weight = 3.0
+
+    model = RelationalGraphSAGE(graph.type_dims, hidden_dim=hidden_dim,
+                                lr=lr, seed=seed)
     return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
                        epochs, patience, seed, pos_weight)
