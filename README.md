@@ -1,23 +1,21 @@
-# gnn-fraud
+# GNN Fraud Ring Detection
 
-Graph neural networks for fraud detection — **GraphSAGE from scratch in
-pure Python, zero dependencies.**
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RishabhPande/GNN-fraud-ring-detection/blob/main/examples/quickstart.py)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
+![Tests](https://img.shields.io/badge/tests-56%20passing-brightgreen)
 
-One-hop features miss fraud rings. A ring of mule accounts can look
-perfectly ordinary one account at a time: normal ages, normal balances,
-normal transaction sizes. What gives them away is the *wiring* — the dense
-pocket of accounts transacting with each other far more than chance
-allows. `gnn-fraud` generates that pattern synthetically and learns it
-with a two-layer GraphSAGE (mean aggregation), implemented end to end —
-forward pass, backprop through both message-passing layers, neighbor
-sampling, mini-batch SGD — with nothing but the standard library.
+**GraphSAGE and GAT from scratch in pure Python. Zero dependencies. Built to catch fraud rings.**
 
-> **Disclaimer:** every account in this repo is synthetic. There are no
-> real people, no real transactions, and no real PII anywhere here. The
-> generator exists so GNN detectors can be built, tested, and benchmarked
-> without touching sensitive data.
+One-hop features miss fraud rings. A ring of mule accounts can look perfectly ordinary one account at a time: normal ages, normal balances, normal transaction sizes. What gives them away is the *wiring*: a dense pocket of accounts transacting with each other far more than chance allows.
 
-## Quickstart
+This repo generates that pattern synthetically and learns it with graph neural networks implemented end to end: forward pass, backprop through message-passing layers, neighbor sampling, mini-batch SGD. Nothing but the standard library.
+
+> **Disclaimer:** every account in this repo is synthetic. No real people, no real transactions, no real PII anywhere. The generator exists so GNN detectors can be built, tested, and benchmarked without touching sensitive data.
+
+## Try it in 30 seconds
+
+Click **Open in Colab** above, or run locally:
 
 ```bash
 python examples/quickstart.py
@@ -31,60 +29,12 @@ from gnn_fraud import GraphGenerator, train_sage, train_val_split
 g = GraphGenerator(seed=7).generate(n=200, ring_size=18)
 train_ids, val_ids = train_val_split(g.labels, seed=7)
 model, history = train_sage(g, train_ids, val_ids)
-probs = model.predict(g, val_ids)   # full-neighborhood inference
+probs = model.predict(g, val_ids)
 ```
 
-## How it works
+## Results
 
-1. **Generate** (`gnn_fraud/generator.py`) — N account nodes with six
-   normalized features (account age, avg amount, txn count, balance,
-   night-txn ratio, counterparties). Benign accounts wire up sparsely at
-   random; a planted ring forms a dense subgraph. Ring members
-   *near-camouflage*: most features match benign, with only subtle
-   behavioral tells (slightly higher night activity, burst counts, more
-   counterparties) — weak individually, damning once pooled.
-2. **Message-pass** (`gnn_fraud/sage.py`) — two GraphSAGE layers,
-   `h_v = relu(W_self·x_v + W_agg·mean(x_neighbors) + b)`, sigmoid output,
-   binary cross-entropy with a positive-class weight (fraud data is
-   imbalanced; without it the model collapses to the base rate — the same
-   fix production systems use). Mini-batches sample up to k neighbors per
-   node per layer, so training is O(batch·k²), not O(full 2-hop).
-2b. **Attend** (`gnn_fraud/gat.py`) — a two-layer single-head GAT with the
-   same protocol: `α_vu = softmax(LeakyReLU(aᵀ[Wh_v‖Wh_u]))`,
-   `h'_v = relu(Σ_u α_vu·Wh_u + b)`, full backprop through the attention
-   (numeric-gradient-checked). `GraphAttention.attention_weights(v)`
-   returns the per-layer α distributions — a readable explanation of
-   *which counterparties* drove an account's score.
-2c. **Relate** (`gnn_fraud/rsage.py`) — a two-layer R-GCN-lite over a
-   *heterogeneous* graph (`gnn_fraud/hetero.py`): accounts, devices, and
-   merchants as distinct node types, wired by typed relations
-   (`uses`, `pays`, `transfers`, + reverses). Each relation gets its own
-   message matrix — a shared *device* means something different from a
-   shared *counterparty* — and each node type gets its own self matrix,
-   so different feature dimensions project into one hidden space. Only
-   accounts are scored. The generator (`gnn_fraud/hetero_gen.py`) plants
-   a ring that shares 3 devices and 4 merchants: individually deniable
-   (households share devices too), collectively damning. `train_hetero`
-   uses the same mini-batch + early-stopping protocol, splitting only
-   account nodes.
-3. **Train** (`gnn_fraud/train.py`) — mini-batch SGD, stratified
-   train/val split, early stopping on validation loss with best-checkpoint
-   restore.
-3b. **Generalize** (`gnn_fraud/inductive.py`) — inductive evaluation on
-   unseen nodes: train on one graph, freeze the F1-tuned operating
-   threshold from its validation split, and score a *fresh* graph (new
-   seed: new ring, new wiring) with no retraining. Re-tuning on the
-   holdout graph would leak its labels, so the frozen threshold is the
-   honest protocol; `inductive_evaluate` also reports the optimistic
-   re-tuned reference. Works for any model via a `predict_fn` adapter.
-4. **Baseline** (`gnn_fraud/baseline.py`) — an MLP on node features only,
-   same protocol. It sees each account's weak tells one noisy row at a
-   time; the GNN denoises them over the ring's dense neighborhood.
-5. **Score** (`gnn_fraud/evaluate.py`) — precision/recall/F1 with a
-   per-model F1-tuned operating threshold (0.5 is the wrong cutoff under
-   class imbalance) plus ROC-AUC, all from scratch.
-
-Typical quickstart output (seed 7, 200 accounts, 18 ring members):
+Seed 7, 200 accounts, 18 ring members. The graph signal is the whole story:
 
 ```
 model                          thr precision  recall      F1     AUC
@@ -92,81 +42,40 @@ GraphSAGE (2-layer, mean agg)  0.28     1.000   0.750   0.857   0.978
 MLP (features only)            0.41     1.000   0.250   0.400   0.683
 ```
 
-`examples/gat_example.py` runs the same graph through the GAT
-(seed 7; GAT trains with a larger lr=0.5 — its attention parameters only
-receive gradient through the softmax, which damps updates):
+Same protocol with attention (`examples/gat_example.py`) and on a heterogeneous graph of accounts, devices, and merchants (`examples/hetero_example.py`):
 
 ```
-model                          thr precision  recall      F1     AUC
-GraphSAGE (2-layer, mean agg)  0.28     1.000   0.750   0.857   0.978
-GAT (2-layer, attention)       0.29     0.667   1.000   0.800   0.967
-```
-
-Honest finding: the GAT matches GraphSAGE but its learned attention stays
-near-uniform (entropy gap vs uniform ≈ 0 nats on the top-scored ring
-member). That's the camouflage doing its job — every counterparty looks
-alike, so the signal lives in the *neighborhood mean*, not in any single
-neighbor, and attention converges to the mean. Attention earns its keep
-where neighbors differ — which is exactly what the heterogeneous graph
-below provides: a shared *device* is a different kind of neighbor than a
-shared *counterparty*, and per-relation weights learn the difference.
-
-`examples/hetero_example.py` runs the same protocol on the heterogeneous
-graph (seed 7; ring shares 3 devices and 4 merchants). The cross-type
-signal is far stronger than camouflaged account features alone:
-
-```
-model                                thr precision  recall      F1     AUC
+GAT (2-layer, attention)            0.29     0.667   1.000   0.800   0.967
 Relational GraphSAGE (hetero)       0.31     0.800   1.000   0.889   0.994
-MLP (account features only)         0.23     0.286   0.500   0.364   0.656
 ```
 
-Honest caveat: the gap is this wide *because* the generator plants a
-loud device-sharing pattern. Real rings launder through shared devices
-far more subtly — the point here is the mechanism, not the magnitude:
-per-relation message weights learn which *kind* of neighbor carries the
-signal.
+Inductive check: train on graph A, freeze the threshold, score a fresh graph B with no retraining. Ranking transfers (AUC 0.84 vs 0.98 transductive); calibration does not, so re-calibrate the threshold per deployment. See `examples/inductive_example.py`.
+
+## What's inside
+
+* **Generate** (`generator.py`): N account nodes, six normalized features. Benign accounts wire sparsely at random; a planted ring forms a dense subgraph with near-camouflaged features. Weak tells individually, damning once pooled.
+* **Message-pass** (`sage.py`): two GraphSAGE layers with mean aggregation, sigmoid output, positive-class-weighted BCE (fraud data is imbalanced; without it the model collapses to the base rate). Neighbor-sampled mini-batches keep training O(batch*k^2).
+* **Attend** (`gat.py`): two-layer single-head GAT, full backprop through attention (numeric-gradient-checked). `attention_weights(v)` shows which counterparties drove an account's score.
+* **Relate** (`rsage.py`, `hetero.py`): R-GCN-lite over a heterogeneous graph. Accounts, devices, merchants as distinct node types; each relation gets its own message matrix, because a shared *device* means something different from a shared *counterparty*.
+* **Generalize** (`inductive.py`): inductive evaluation on unseen nodes. The honest protocol: frozen threshold from the training graph, no label leakage.
+* **Baseline** (`baseline.py`): feature-only MLP under the same protocol, so the graph signal is measured, not assumed.
+* **Score** (`evaluate.py`): precision/recall/F1 with F1-tuned operating threshold plus ROC-AUC, all from scratch.
+
+## Honest findings
+
+* The GAT matches GraphSAGE, but its learned attention stays near-uniform on camouflaged rings: the signal lives in the neighborhood *mean*, not any single neighbor. Attention earns its keep where neighbors differ, which is what the heterogeneous graph provides.
+* The hetero gap is wide because the generator plants a loud device-sharing pattern. Real rings launder through shared devices more subtly. The point is the mechanism, not the magnitude: per-relation weights learn *which kind* of neighbor carries the signal.
+* Inductive ranking transfers across fresh graphs (AUC 0.84); score calibration does not (frozen-threshold F1 collapses 0.86 to 0.08). Ship the aggregation weights freely, re-calibrate the threshold per deployment.
 
 ## Roadmap
 
-- [x] Two-layer GraphSAGE with mean aggregation, from scratch
-- [x] Neighbor-sampled mini-batch training + early stopping
-- [x] Feature-only MLP baseline showing the graph signal matters
-- [x] GAT attention layer (learn *which* neighbors matter, not just the mean)
-- [x] Heterogeneous graphs (accounts, devices, merchants as distinct node types)
-- [x] Inductive evaluation on unseen nodes (GraphSAGE's real strength)
-- [ ] Temporal edges: rings form fast — add edge timestamps and recency weighting
-
-## Inductive evaluation: a fresh graph, no retraining
-
-`examples/inductive_example.py` trains on graph A (seed 7), freezes the
-F1-tuned threshold from A's validation split, then scores a freshly
-generated graph B (seed 99 — a new ring, new wiring, new feature draws)
-without touching the weights. This is the inductive claim that separates
-GraphSAGE from transductive GNNs: the model keeps no per-node parameters,
-so it scores accounts it never saw.
-
-```
-model                       thr precision  recall      F1     AUC  (A-val AUC)
-GraphSAGE (frozen)         0.28     0.167   0.056   0.083   0.836      0.978
-GraphSAGE (re-tuned*)      0.26     0.291   0.889   0.438   0.836      0.978
-MLP (features only, frozen) 0.23    0.333   0.333   0.333   0.713      0.656
-```
-
-*re-tuned on B's labels: optimistic (leaks B's labels), shown for reference.
-
-Honest finding: the GNN's *ranking* transfers to unseen wiring —
-inductive AUC 0.84 vs transductive 0.98, well ahead of the MLP's 0.71 —
-but its score *calibration* does not: the frozen threshold's F1 collapses
-from 0.86 to 0.08. Re-tuning the threshold on B (which a deployed system
-approximates by re-calibrating on a small labeled sample of new accounts)
-recovers F1 0.44 at essentially the same operating point. Takeaway for
-production: ship the learned aggregation weights to new graphs freely,
-but re-calibrate the decision threshold per deployment. A second honest
-caveat: inductive difficulty varies across graph draws — some fresh graphs
-are intrinsically hard (a model trained *on* them can still land near
-AUC 0.5 on an unlucky seed), so single-graph inductive numbers should be
-read as one draw, not a universal constant.
+* [x] Two-layer GraphSAGE with mean aggregation, from scratch
+* [x] Neighbor-sampled mini-batch training + early stopping
+* [x] Feature-only MLP baseline showing the graph signal matters
+* [x] GAT attention layer
+* [x] Heterogeneous graphs (accounts, devices, merchants)
+* [x] Inductive evaluation on unseen nodes
+* [ ] Temporal edges: rings form fast, add edge timestamps and recency weighting
 
 ## Tests
 
@@ -174,23 +83,4 @@ read as one draw, not a universal constant.
 python3 -m pytest tests/ -q
 ```
 
-Covers hand-computed forward/backward passes on a tiny graph, loss
-decrease during training, ring planting + feature camouflage in the
-generator, metric correctness on known cases, neighbor-sampling bounds,
-and the headline claim: the GNN's AUC beats the feature-only baseline.
-The GAT suite adds hand-computed attention weights, a central-difference
-gradient check of the full attention backward pass, attention-as-mean
-degeneration with zeroed attention vectors, and attention-weight
-distributions summing to 1. The hetero suite adds typed-graph structure
-and relation symmetry, the shared-device planting signal, hand-computed
-forward/backward of the relational layer, a central-difference gradient
-check of all per-type and per-relation parameters, per-relation sampling
-bounds, and the headline claim: the relational model's AUC beats the
-feature-only baseline by a wide margin on the planted device-sharing
-pattern. The inductive suite pins the honest protocol on fixed seeds:
-scoring filters to labeled nodes, a frozen threshold matches
-`evaluate_all` exactly, and on a fresh graph (train seed 7 → holdout
-seed 99) the inductive AUC stays ≥ 0.80 while the frozen threshold's F1
-collapses (≤ 0.15) — calibration does not transfer; re-tuning on the
-holdout (flagged optimistic) recovers F1 ≥ 0.40 at identical AUC, and a
-single unseen node scores without retraining.
+56 tests cover hand-computed forward/backward passes, gradient checks, generator camouflage, metric correctness, sampling bounds, and the headline claims: GNN AUC beats the feature-only baseline, inductive AUC stays above 0.80 on a fresh graph.
