@@ -70,6 +70,13 @@ probs = model.predict(g, val_ids)   # full-neighborhood inference
 3. **Train** (`gnn_fraud/train.py`) — mini-batch SGD, stratified
    train/val split, early stopping on validation loss with best-checkpoint
    restore.
+3b. **Generalize** (`gnn_fraud/inductive.py`) — inductive evaluation on
+   unseen nodes: train on one graph, freeze the F1-tuned operating
+   threshold from its validation split, and score a *fresh* graph (new
+   seed: new ring, new wiring) with no retraining. Re-tuning on the
+   holdout graph would leak its labels, so the frozen threshold is the
+   honest protocol; `inductive_evaluate` also reports the optimistic
+   re-tuned reference. Works for any model via a `predict_fn` adapter.
 4. **Baseline** (`gnn_fraud/baseline.py`) — an MLP on node features only,
    same protocol. It sees each account's weak tells one noisy row at a
    time; the GNN denoises them over the ring's dense neighborhood.
@@ -127,8 +134,39 @@ signal.
 - [x] Feature-only MLP baseline showing the graph signal matters
 - [x] GAT attention layer (learn *which* neighbors matter, not just the mean)
 - [x] Heterogeneous graphs (accounts, devices, merchants as distinct node types)
-- [ ] Inductive evaluation on unseen nodes (GraphSAGE's real strength)
+- [x] Inductive evaluation on unseen nodes (GraphSAGE's real strength)
 - [ ] Temporal edges: rings form fast — add edge timestamps and recency weighting
+
+## Inductive evaluation: a fresh graph, no retraining
+
+`examples/inductive_example.py` trains on graph A (seed 7), freezes the
+F1-tuned threshold from A's validation split, then scores a freshly
+generated graph B (seed 99 — a new ring, new wiring, new feature draws)
+without touching the weights. This is the inductive claim that separates
+GraphSAGE from transductive GNNs: the model keeps no per-node parameters,
+so it scores accounts it never saw.
+
+```
+model                       thr precision  recall      F1     AUC  (A-val AUC)
+GraphSAGE (frozen)         0.28     0.167   0.056   0.083   0.836      0.978
+GraphSAGE (re-tuned*)      0.26     0.291   0.889   0.438   0.836      0.978
+MLP (features only, frozen) 0.23    0.333   0.333   0.333   0.713      0.656
+```
+
+*re-tuned on B's labels: optimistic (leaks B's labels), shown for reference.
+
+Honest finding: the GNN's *ranking* transfers to unseen wiring —
+inductive AUC 0.84 vs transductive 0.98, well ahead of the MLP's 0.71 —
+but its score *calibration* does not: the frozen threshold's F1 collapses
+from 0.86 to 0.08. Re-tuning the threshold on B (which a deployed system
+approximates by re-calibrating on a small labeled sample of new accounts)
+recovers F1 0.44 at essentially the same operating point. Takeaway for
+production: ship the learned aggregation weights to new graphs freely,
+but re-calibrate the decision threshold per deployment. A second honest
+caveat: inductive difficulty varies across graph draws — some fresh graphs
+are intrinsically hard (a model trained *on* them can still land near
+AUC 0.5 on an unlucky seed), so single-graph inductive numbers should be
+read as one draw, not a universal constant.
 
 ## Tests
 
@@ -149,4 +187,10 @@ forward/backward of the relational layer, a central-difference gradient
 check of all per-type and per-relation parameters, per-relation sampling
 bounds, and the headline claim: the relational model's AUC beats the
 feature-only baseline by a wide margin on the planted device-sharing
-pattern.
+pattern. The inductive suite pins the honest protocol on fixed seeds:
+scoring filters to labeled nodes, a frozen threshold matches
+`evaluate_all` exactly, and on a fresh graph (train seed 7 → holdout
+seed 99) the inductive AUC stays ≥ 0.80 while the frozen threshold's F1
+collapses (≤ 0.15) — calibration does not transfer; re-tuning on the
+holdout (flagged optimistic) recovers F1 ≥ 0.40 at identical AUC, and a
+single unseen node scores without retraining.

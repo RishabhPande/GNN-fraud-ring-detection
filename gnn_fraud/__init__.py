@@ -29,6 +29,7 @@ from gnn_fraud.hetero import (
     RELATION_NAMES,
 )
 from gnn_fraud.hetero_gen import HeteroGenerator
+from gnn_fraud.inductive import inductive_evaluate, score_new_nodes
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE, SAGELayer
 from gnn_fraud.train import train_gat, train_hetero, train_sage, train_val_split
@@ -57,8 +58,10 @@ __all__ = [
     "SAGELayer",
     "best_threshold_f1",
     "evaluate_all",
+    "inductive_evaluate",
     "precision_recall_f1",
     "roc_auc",
+    "score_new_nodes",
     "train_gat",
     "train_hetero",
     "train_mlp",
