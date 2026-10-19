@@ -7,6 +7,7 @@ import random
 from gnn_fraud.gat import GraphAttention
 from gnn_fraud.rsage import RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE
+from gnn_fraud.temporal import TemporalGraphSAGE
 
 
 def train_val_split(labels: list[int], val_frac: float = 0.2,
@@ -157,6 +158,49 @@ def train_gat(
 
     model = GraphAttention(graph.feature_dim, hidden_dim=hidden_dim, lr=lr,
                            seed=seed, negative_slope=negative_slope)
+    return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
+                       epochs, patience, seed, pos_weight)
+
+
+def train_temporal(
+    graph,
+    train_ids: list[int] | None = None,
+    val_ids: list[int] | None = None,
+    hidden_dim: int = 16,
+    k1: int = 3,
+    k2: int = 3,
+    lr: float = 0.1,
+    batch_size: int = 64,
+    epochs: int = 30,
+    patience: int = 5,
+    seed: int = 0,
+    pos_weight: float | None = None,
+    log_tau: float | None = None,
+) -> tuple[TemporalGraphSAGE, dict]:
+    """Train a 2-layer temporal GraphSAGE on a timestamped graph.
+
+    Same protocol as :func:`train_sage` (neighbor-sampled mini-batches,
+    early stopping on validation loss, best-checkpoint restore), but each
+    layer weights neighbors by recency with a learned decay timescale.
+    Raises ``ValueError`` if the graph's edges have no timestamps.
+
+    Args:
+        log_tau: initial log-timescale for both layers (τ = exp(log_tau)
+            days). Defaults to log(5 days). τ is learned per layer from
+            there.
+        pos_weight: upweighting of fraud examples in the training loss.
+    """
+    import math
+
+    if train_ids is None or val_ids is None:
+        train_ids, val_ids = train_val_split(graph.labels, seed=seed)
+    if pos_weight is None:
+        pos_weight = 3.0
+    if log_tau is None:
+        log_tau = math.log(5.0)
+
+    model = TemporalGraphSAGE(graph.feature_dim, hidden_dim=hidden_dim,
+                              lr=lr, seed=seed, log_tau=log_tau)
     return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
                        epochs, patience, seed, pos_weight)
 

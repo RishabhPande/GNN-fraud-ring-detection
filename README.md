@@ -3,7 +3,7 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RishabhPande/GNN-fraud-ring-detection/blob/main/examples/quickstart.py)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
-![Tests](https://img.shields.io/badge/tests-56%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-72%20passing-brightgreen)
 
 **GraphSAGE and GAT from scratch in pure Python. Zero dependencies. Built to catch fraud rings.**
 
@@ -39,7 +39,7 @@ Seed 7, 200 accounts, 18 ring members. The graph signal is the whole story:
 ```
 model                          thr precision  recall      F1     AUC
 GraphSAGE (2-layer, mean agg)  0.28     1.000   0.750   0.857   0.978
-MLP (features only)            0.41     1.000   0.250   0.400   0.683
+MLP (features only)            0.23     0.286   0.500   0.364   0.656
 ```
 
 Same protocol with attention (`examples/gat_example.py`) and on a heterogeneous graph of accounts, devices, and merchants (`examples/hetero_example.py`):
@@ -47,6 +47,14 @@ Same protocol with attention (`examples/gat_example.py`) and on a heterogeneous 
 ```
 GAT (2-layer, attention)            0.29     0.667   1.000   0.800   0.967
 Relational GraphSAGE (hetero)       0.31     0.800   1.000   0.889   0.994
+```
+
+With edge timestamps -- the ring's edges land in a 3-day burst at the end of a 30-day timeline -- recency-weighted aggregation (`examples/temporal_example.py`):
+
+```
+TemporalGraphSAGE (recency)         0.27     0.571   1.000   0.727   0.950
+GraphSAGE (2-layer, mean agg)       0.28     1.000   0.750   0.857   0.978
+MLP (features only)                 0.23     0.286   0.500   0.364   0.656
 ```
 
 Inductive check: train on graph A, freeze the threshold, score a fresh graph B with no retraining. Ranking transfers (AUC 0.84 vs 0.98 transductive); calibration does not, so re-calibrate the threshold per deployment. See `examples/inductive_example.py`.
@@ -57,6 +65,7 @@ Inductive check: train on graph A, freeze the threshold, score a fresh graph B w
 * **Message-pass** (`sage.py`): two GraphSAGE layers with mean aggregation, sigmoid output, positive-class-weighted BCE (fraud data is imbalanced; without it the model collapses to the base rate). Neighbor-sampled mini-batches keep training O(batch*k^2).
 * **Attend** (`gat.py`): two-layer single-head GAT, full backprop through attention (numeric-gradient-checked). `attention_weights(v)` shows which counterparties drove an account's score.
 * **Relate** (`rsage.py`, `hetero.py`): R-GCN-lite over a heterogeneous graph. Accounts, devices, merchants as distinct node types; each relation gets its own message matrix, because a shared *device* means something different from a shared *counterparty*.
+* **Time** (`temporal.py`): edges carry timestamps; ring edges land in a fast late burst while benign edges spread over the timeline. Each layer weights neighbors by recency (`softmax(-Δt/τ)`) with a learned, log-parametrized decay timescale, so aggregation concentrates on burst-coordinated neighbors.
 * **Generalize** (`inductive.py`): inductive evaluation on unseen nodes. The honest protocol: frozen threshold from the training graph, no label leakage.
 * **Baseline** (`baseline.py`): feature-only MLP under the same protocol, so the graph signal is measured, not assumed.
 * **Score** (`evaluate.py`): precision/recall/F1 with F1-tuned operating threshold plus ROC-AUC, all from scratch.
@@ -66,6 +75,7 @@ Inductive check: train on graph A, freeze the threshold, score a fresh graph B w
 * The GAT matches GraphSAGE, but its learned attention stays near-uniform on camouflaged rings: the signal lives in the neighborhood *mean*, not any single neighbor. Attention earns its keep where neighbors differ, which is what the heterogeneous graph provides.
 * The hetero gap is wide because the generator plants a loud device-sharing pattern. Real rings launder through shared devices more subtly. The point is the mechanism, not the magnitude: per-relation weights learn *which kind* of neighbor carries the signal.
 * Inductive ranking transfers across fresh graphs (AUC 0.84); score calibration does not (frozen-threshold F1 collapses 0.86 to 0.08). Ship the aggregation weights freely, re-calibrate the threshold per deployment.
+* Recency weighting is not free: it concentrates aggregation on recent edges, which sharpens the burst but thins each node's effective neighborhood and adds variance. On this generator the dense structure is already a near-perfect signal, so the plain mean wins slightly (AUC 0.978 vs 0.950) while both crush the feature baseline (0.656). Recency earns its keep where old edges mislead -- dormant accounts, or histories that predate a compromise -- which is the next experiment, not this one. The learned timescale barely moves from its 5-day init: the loss is nearly flat in τ once the burst/background separation is strong, and its gradient (numeric-checked) is orders of magnitude smaller than the weight gradients.
 
 ## Roadmap
 
@@ -75,7 +85,7 @@ Inductive check: train on graph A, freeze the threshold, score a fresh graph B w
 * [x] GAT attention layer
 * [x] Heterogeneous graphs (accounts, devices, merchants)
 * [x] Inductive evaluation on unseen nodes
-* [ ] Temporal edges: rings form fast, add edge timestamps and recency weighting
+* [x] Temporal edges: rings form fast -- edge timestamps with recency-weighted aggregation and a learned decay timescale
 
 ## Tests
 
@@ -83,4 +93,4 @@ Inductive check: train on graph A, freeze the threshold, score a fresh graph B w
 python3 -m pytest tests/ -q
 ```
 
-56 tests cover hand-computed forward/backward passes, gradient checks, generator camouflage, metric correctness, sampling bounds, and the headline claims: GNN AUC beats the feature-only baseline, inductive AUC stays above 0.80 on a fresh graph.
+72 tests cover hand-computed forward/backward passes, gradient checks, generator camouflage, metric correctness, sampling bounds, and the headline claims: GNN AUC beats the feature-only baseline, inductive AUC stays above 0.80 on a fresh graph.

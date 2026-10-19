@@ -32,7 +32,14 @@ from gnn_fraud.hetero_gen import HeteroGenerator
 from gnn_fraud.inductive import inductive_evaluate, score_new_nodes
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE, SAGELayer
-from gnn_fraud.train import train_gat, train_hetero, train_sage, train_val_split
+from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
+from gnn_fraud.train import (
+    train_gat,
+    train_hetero,
+    train_sage,
+    train_temporal,
+    train_val_split,
+)
 
 __all__ = [
     "ACCOUNT",
@@ -56,15 +63,19 @@ __all__ = [
     "RelSAGELayer",
     "RelationalGraphSAGE",
     "SAGELayer",
+    "TemporalGraphSAGE",
+    "TemporalSAGELayer",
     "best_threshold_f1",
     "evaluate_all",
     "inductive_evaluate",
     "precision_recall_f1",
+    "recency_weights",
     "roc_auc",
     "score_new_nodes",
     "train_gat",
     "train_hetero",
     "train_mlp",
     "train_sage",
+    "train_temporal",
     "train_val_split",
 ]
