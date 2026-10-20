@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import random
 
+from gnn_fraud.edge_cls import (
+    edge_labels,
+    edge_train_val_split,
+    full_embeddings,
+    train_edge_head,
+)
 from gnn_fraud.gat import GraphAttention
 from gnn_fraud.rsage import RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE
@@ -239,3 +245,49 @@ def train_hetero(
                                 lr=lr, seed=seed)
     return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
                        epochs, patience, seed, pos_weight)
+
+
+def train_edge_cls(
+    graph,
+    encoder,
+    train_edges: list[tuple[int, int]] | None = None,
+    val_edges: list[tuple[int, int]] | None = None,
+    hidden_dim: int = 16,
+    lr: float = 0.1,
+    batch_size: int = 64,
+    epochs: int = 40,
+    patience: int = 8,
+    seed: int = 0,
+    pos_weight: float = 1.0,
+) -> tuple:
+    """Train an edge classifier on top of a frozen GNN encoder.
+
+    The encoder (typically a GraphSAGE trained with :func:`train_sage`)
+    is NOT updated here: this freezes what the node model learned and
+    trains only the edge head, an MLP over endpoint-pair features
+    (see :mod:`gnn_fraud.edge_cls`). Embeddings come from a deterministic
+    full-neighborhood forward pass, so inference is reproducible.
+
+    Args:
+        graph: the (homogeneous) transaction graph.
+        encoder: any model whose ``forward`` returns ``(probs, cache)``
+            with ``cache["h2"]`` -- GraphSAGE, GAT, RelationalGraphSAGE,
+            and TemporalGraphSAGE all qualify.
+        train_edges / val_edges: explicit edge split as (u, v), u < v.
+            If omitted, edges are stratified 75/25 with ``seed``.
+        pos_weight: multiplier on the loss of ring-internal edges.
+
+    Returns (head, embeddings, history): the trained
+    :class:`~gnn_fraud.edge_cls.EdgeHead`, the frozen node embeddings
+    (for scoring), and the per-epoch train/val loss history.
+    """
+    nodes = list(range(graph.n))
+    embeddings = full_embeddings(encoder, graph, nodes)
+    labels = edge_labels(graph)
+    edges = sorted(labels)
+    head, history = train_edge_head(
+        embeddings, edges, labels, train_edges, val_edges,
+        hidden_dim=hidden_dim, lr=lr, batch_size=batch_size,
+        epochs=epochs, patience=patience, seed=seed,
+        pos_weight=pos_weight)
+    return head, embeddings, history

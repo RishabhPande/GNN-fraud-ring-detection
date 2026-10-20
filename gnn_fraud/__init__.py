@@ -7,6 +7,15 @@ transactions, or real PII.
 """
 
 from gnn_fraud.baseline import MLP, train_mlp
+from gnn_fraud.edge_cls import (
+    EdgeHead,
+    edge_labels,
+    edge_phi,
+    edge_train_val_split,
+    full_embeddings,
+    score_edges,
+    train_edge_head,
+)
 from gnn_fraud.evaluate import (
     best_threshold_f1,
     evaluate_all,
@@ -34,6 +43,7 @@ from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE, SAGELayer
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
+    train_edge_cls,
     train_gat,
     train_hetero,
     train_sage,
@@ -65,13 +75,21 @@ __all__ = [
     "SAGELayer",
     "TemporalGraphSAGE",
     "TemporalSAGELayer",
+    "EdgeHead",
     "best_threshold_f1",
+    "edge_labels",
+    "edge_phi",
+    "edge_train_val_split",
     "evaluate_all",
+    "full_embeddings",
     "inductive_evaluate",
     "precision_recall_f1",
     "recency_weights",
     "roc_auc",
+    "score_edges",
     "score_new_nodes",
+    "train_edge_cls",
+    "train_edge_head",
     "train_gat",
     "train_hetero",
     "train_mlp",
