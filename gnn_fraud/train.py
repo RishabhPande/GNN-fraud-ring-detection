@@ -147,15 +147,19 @@ def train_gat(
     seed: int = 0,
     pos_weight: float | None = None,
     negative_slope: float = 0.2,
+    n_heads: int = 1,
 ) -> tuple[GraphAttention, dict]:
-    """Train a 2-layer single-head GAT with neighbor-sampled mini-batches.
+    """Train a 2-layer multi-head GAT with neighbor-sampled mini-batches.
 
     Same protocol as :func:`train_sage` (early stopping on validation
-    loss, best-checkpoint restore). Returns (model, history).
+    loss, best-checkpoint restore). Returns (model, history). Layer 1
+    concatenates head outputs; layer 2 averages them (final-layer style,
+    per the GAT paper). ``n_heads=1`` is exactly the single-head model.
 
     Args:
         negative_slope: LeakyReLU slope used in the attention mechanism.
         pos_weight: upweighting of fraud examples in the training loss.
+        n_heads: number of independent attention heads per layer.
     """
     if train_ids is None or val_ids is None:
         train_ids, val_ids = train_val_split(graph.labels, seed=seed)
@@ -163,7 +167,8 @@ def train_gat(
         pos_weight = 3.0
 
     model = GraphAttention(graph.feature_dim, hidden_dim=hidden_dim, lr=lr,
-                           seed=seed, negative_slope=negative_slope)
+                           seed=seed, negative_slope=negative_slope,
+                           n_heads=n_heads)
     return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
                        epochs, patience, seed, pos_weight)
 

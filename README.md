@@ -3,7 +3,7 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RishabhPande/GNN-fraud-ring-detection/blob/main/examples/quickstart.py)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
-![Tests](https://img.shields.io/badge/tests-83%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen)
 
 **GraphSAGE and GAT from scratch in pure Python. Zero dependencies. Built to catch fraud rings.**
 
@@ -49,6 +49,21 @@ GAT (2-layer, attention)            0.29     0.667   1.000   0.800   0.967
 Relational GraphSAGE (hetero)       0.31     0.800   1.000   0.889   0.994
 ```
 
+Multi-head GAT (`examples/multihead_gat_example.py`; longer schedule --
+150 epochs, patience 40, lr 1.0 -- because the averaged final layer
+splits each head's gradient K ways):
+
+```
+GAT (1-head)                        0.73     1.000   1.000   1.000   1.000
+GAT (2-head)                        0.19     0.800   1.000   0.889   0.994
+GAT (4-head)                        0.79     1.000   1.000   1.000   1.000
+```
+
+More heads match single-head ranking but buy nothing here: the four
+heads learn nearly identical, near-uniform attention (mean pairwise
+head L1/2 distance 0.022 on the top-scored ring member), so they
+re-learn the same neighborhood mean four times instead of specializing.
+
 With edge timestamps -- the ring's edges land in a 3-day burst at the end of a 30-day timeline -- recency-weighted aggregation (`examples/temporal_example.py`):
 
 ```
@@ -69,7 +84,7 @@ EdgeHead (frozen SAGE embeddings)       0.48     0.857   1.000   0.923   0.951
 
 * **Generate** (`generator.py`): N account nodes, six normalized features. Benign accounts wire sparsely at random; a planted ring forms a dense subgraph with near-camouflaged features. Weak tells individually, damning once pooled.
 * **Message-pass** (`sage.py`): two GraphSAGE layers with mean aggregation, sigmoid output, positive-class-weighted BCE (fraud data is imbalanced; without it the model collapses to the base rate). Neighbor-sampled mini-batches keep training O(batch*k^2).
-* **Attend** (`gat.py`): two-layer single-head GAT, full backprop through attention (numeric-gradient-checked). `attention_weights(v)` shows which counterparties drove an account's score.
+* **Attend** (`gat.py`): two-layer multi-head GAT, full backprop through attention (numeric-gradient-checked per head). Layer 1 concatenates head outputs, layer 2 averages them (the GAT paper's convention); `n_heads=1` reproduces the classic single-head model bit-for-bit, and legacy single-head checkpoints still load. `attention_weights(v)` shows which counterparties drove an account's score (head-averaged); `attention_weights_per_head(v)` shows each head separately.
 * **Relate** (`rsage.py`, `hetero.py`): R-GCN-lite over a heterogeneous graph. Accounts, devices, merchants as distinct node types; each relation gets its own message matrix, because a shared *device* means something different from a shared *counterparty*.
 * **Time** (`temporal.py`): edges carry timestamps; ring edges land in a fast late burst while benign edges spread over the timeline. Each layer weights neighbors by recency (`softmax(-Δt/τ)`) with a learned, log-parametrized decay timescale, so aggregation concentrates on burst-coordinated neighbors.
 * **Generalize** (`inductive.py`): inductive evaluation on unseen nodes. The honest protocol: frozen threshold from the training graph, no label leakage.
@@ -80,6 +95,7 @@ EdgeHead (frozen SAGE embeddings)       0.48     0.857   1.000   0.923   0.951
 ## Honest findings
 
 * The GAT matches GraphSAGE, but its learned attention stays near-uniform on camouflaged rings: the signal lives in the neighborhood *mean*, not any single neighbor. Attention earns its keep where neighbors differ, which is what the heterogeneous graph provides.
+* Multi-head attention does not rescue this: on camouflaged rings the heads do not specialize -- four heads learn the same diffuse distribution (pairwise L1/2 distance 0.022) -- so 4-head AUC ties single-head (1.000 vs 1.000) while training far slower. The averaged final layer dilutes each head's gradient K-fold, so under vanilla SGD the heads sit in a flat uniform-attention region for dozens of epochs; short-patience early stopping can then lock in a degenerate checkpoint that looks fine on validation BCE (0.35) but ranks backwards (AUC 0.256). Budget a long schedule (150 epochs, patience 40 here) and verify ranking, not just loss. Heads would earn their keep where different neighbor *kinds* matter -- e.g. one head for the dense pocket, another for feature outliers -- which the current generator does not provide.
 * The hetero gap is wide because the generator plants a loud device-sharing pattern. Real rings launder through shared devices more subtly. The point is the mechanism, not the magnitude: per-relation weights learn *which kind* of neighbor carries the signal.
 * Inductive ranking transfers across fresh graphs (AUC 0.84); score calibration does not (frozen-threshold F1 collapses 0.86 to 0.08). Ship the aggregation weights freely, re-calibrate the threshold per deployment.
 * Edge classification is an easier task than node classification here, not a harder one: the head is a probe of frozen embeddings, so it mostly re-discovers the dense pocket (AUC 0.951 on held-out edges). The genuinely hard negatives are the bridge edges -- ring member to benign account -- which score halfway between (0.479 vs 0.511 ring-internal, 0.421 benign): one suspicious endpoint leaks signal. A production edge model would add flow features (amount, direction, timing) rather than leaning on structure alone.
@@ -95,6 +111,7 @@ EdgeHead (frozen SAGE embeddings)       0.48     0.857   1.000   0.923   0.951
 * [x] Inductive evaluation on unseen nodes
 * [x] Temporal edges: rings form fast -- edge timestamps with recency-weighted aggregation and a learned decay timescale
 * [x] Edge classification: score flows (ring-internal vs background edges) with an MLP head over frozen GNN embeddings
+* [x] Multi-head GAT: independent attention heads (concat in layer 1, average in layer 2 per the GAT paper), per-head backprop with numeric gradient checks, per-head attention introspection, legacy checkpoint compatibility
 
 ## Tests
 
@@ -102,4 +119,4 @@ EdgeHead (frozen SAGE embeddings)       0.48     0.857   1.000   0.923   0.951
 python3 -m pytest tests/ -q
 ```
 
-83 tests cover hand-computed forward/backward passes, gradient checks, generator camouflage, metric correctness, sampling bounds, and the headline claims: GNN AUC beats the feature-only baseline, inductive AUC stays above 0.80 on a fresh graph, and the edge head separates ring-internal flows (AUC 0.85+) on held-out edges.
+93 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes), single-head bit-for-bit equivalence, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, and the headline claims: GNN AUC beats the feature-only baseline, inductive AUC stays above 0.80 on a fresh graph, and the edge head separates ring-internal flows (AUC 0.85+) on held-out edges.
