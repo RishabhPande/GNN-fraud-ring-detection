@@ -109,6 +109,7 @@ def train_sage(
     patience: int = 5,
     seed: int = 0,
     pos_weight: float | None = None,
+    aggregator: str = "mean",
 ) -> tuple[GraphSAGE, dict]:
     """Train a 2-layer GraphSAGE with neighbor-sampled mini-batches.
 
@@ -119,6 +120,8 @@ def train_sage(
         pos_weight: upweighting of fraud examples in the training loss.
             Defaults to #neg/#pos on the training set (standard for
             imbalanced fraud data).
+        aggregator: ``"mean"`` or ``"pool"`` (max-pooling aggregator from
+            the GraphSAGE paper), shared by both layers.
     """
     if train_ids is None or val_ids is None:
         train_ids, val_ids = train_val_split(graph.labels, seed=seed)
@@ -128,7 +131,8 @@ def train_sage(
         # over-corrects and predicts positive for everything.)
         pos_weight = 3.0
 
-    model = GraphSAGE(graph.feature_dim, hidden_dim=hidden_dim, lr=lr, seed=seed)
+    model = GraphSAGE(graph.feature_dim, hidden_dim=hidden_dim, lr=lr,
+                      seed=seed, aggregator=aggregator)
     return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
                        epochs, patience, seed, pos_weight)
 

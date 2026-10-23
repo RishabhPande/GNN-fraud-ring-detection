@@ -76,7 +76,7 @@ def test_sage_layer_backward_hand_computed():
     layer.W_agg = [[1.0, 0.0], [0.0, 1.0]]
     layer.b = [0.0, 0.0]
     _, cache = layer.forward([1.0, 0.0], [[0.0, 2.0]])
-    d_h_self, d_agg = layer.backward([1.0, 1.0], cache)
+    d_h_self, d_neighs = layer.backward([1.0, 1.0], cache)
     # d_pre = [1,1] (both pre-activations > 0)
     assert layer.gW_self == [[1.0, 0.0], [1.0, 0.0]]
     assert layer.gW_agg == [[0.0, 2.0], [0.0, 2.0]]
@@ -84,8 +84,11 @@ def test_sage_layer_backward_hand_computed():
     # identity weights: W^T @ [1,1] = [1,1]
     approx(d_h_self[0], 1.0)
     approx(d_h_self[1], 1.0)
-    approx(d_agg[0], 1.0)
-    approx(d_agg[1], 1.0)
+    # mean mode: per-neighbor gradients; the single neighbor gets the full
+    # aggregation gradient (same contract as backward_temporal)
+    assert len(d_neighs) == 1
+    approx(d_neighs[0][0], 1.0)
+    approx(d_neighs[0][1], 1.0)
 
 
 def test_sage_layer_relu_blocks_negative_gradient():

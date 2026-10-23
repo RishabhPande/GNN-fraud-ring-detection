@@ -3,7 +3,7 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RishabhPande/GNN-fraud-ring-detection/blob/main/examples/quickstart.py)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
-![Tests](https://img.shields.io/badge/tests-100%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-112%20passing-brightgreen)
 
 **GraphSAGE and GAT from scratch in pure Python. Zero dependencies. Built to catch fraud rings.**
 
@@ -37,10 +37,17 @@ probs = model.predict(g, val_ids)
 Seed 7, 200 accounts, 18 ring members. The graph signal is the whole story:
 
 ```
-model                          thr precision  recall      F1     AUC
-GraphSAGE (2-layer, mean agg)  0.28     1.000   0.750   0.857   0.978
-MLP (features only)            0.23     0.286   0.500   0.364   0.656
+model                              thr precision  recall      F1     AUC
+GraphSAGE (2-layer, mean agg)      0.28     1.000   0.750   0.857   0.978
+GraphSAGE (2-layer, max-pool agg)  0.41     1.000   1.000   1.000   1.000
+MLP (features only)                0.23     0.286   0.500   0.364   0.656
 ```
+
+Same protocol with max-pool aggregation (`examples/pool_example.py`): each
+neighbor is transformed through `relu(W_pool @ x_u + b_pool)` and the layer
+keeps the elementwise max -- the single loudest tell per dimension, not the
+neighborhood mean (the GraphSAGE paper's pooling aggregator, selected with
+`aggregator="pool"`).
 
 Same protocol with attention (`examples/gat_example.py`) and on a heterogeneous graph of accounts, devices, and merchants (`examples/hetero_example.py`):
 
@@ -84,6 +91,7 @@ A second fraud pattern -- money-mule chains (`examples/mule_chain_example.py`): 
 
 ```
 GraphSAGE (2-layer, mean agg)          0.40     0.800   1.000   0.889   0.978
+GraphSAGE (2-layer, max-pool agg)      0.50     0.800   1.000   0.889   0.978
 TemporalGraphSAGE (recency)            0.39     0.800   1.000   0.889   0.983
 MLP (features only)                    0.60     1.000   0.500   0.667   0.856
 ```
@@ -91,7 +99,7 @@ MLP (features only)                    0.60     1.000   0.500   0.667   0.856
 ## What's inside
 
 * **Generate** (`generator.py`): N account nodes, six normalized features. Benign accounts wire sparsely at random; a planted ring forms a dense subgraph with near-camouflaged features. Weak tells individually, damning once pooled. A second pattern, `generate_mule_chain()`, plants a laundering network instead: originator -> parallel mule chains -> consolidator -> exit -- thin paths, ~zero triangles, hop timestamps monotone downstream in a late burst -- with per-role feature tells (pass-through mules, orchestration-volume organizer, emptied exit).
-* **Message-pass** (`sage.py`): two GraphSAGE layers with mean aggregation, sigmoid output, positive-class-weighted BCE (fraud data is imbalanced; without it the model collapses to the base rate). Neighbor-sampled mini-batches keep training O(batch*k^2).
+* **Message-pass** (`sage.py`): two GraphSAGE layers with mean or max-pool aggregation, sigmoid output, positive-class-weighted BCE (fraud data is imbalanced; without it the model collapses to the base rate). Neighbor-sampled mini-batches keep training O(batch*k^2). The max-pool aggregator (the GraphSAGE paper's pooling aggregator) transforms each neighbor through `relu(W_pool @ x_u + b_pool)` -- He-initialized, since it feeds a ReLU -- then takes the elementwise max; backprop routes each dimension's gradient to its argmax neighbor. Mean-mode training is bit-for-bit unchanged (verified against the pre-pool code: identical loss trajectories and AUC).
 * **Attend** (`gat.py`): two-layer multi-head GAT, full backprop through attention (numeric-gradient-checked per head). Layer 1 concatenates head outputs, layer 2 averages them (the GAT paper's convention); `n_heads=1` reproduces the classic single-head model bit-for-bit, and legacy single-head checkpoints still load. `attention_weights(v)` shows which counterparties drove an account's score (head-averaged); `attention_weights_per_head(v)` shows each head separately.
 * **Relate** (`rsage.py`, `hetero.py`): R-GCN-lite over a heterogeneous graph. Accounts, devices, merchants as distinct node types; each relation gets its own message matrix, because a shared *device* means something different from a shared *counterparty*.
 * **Time** (`temporal.py`): edges carry timestamps; ring edges land in a fast late burst while benign edges spread over the timeline. Each layer weights neighbors by recency (`softmax(-Δt/τ)`) with a learned, log-parametrized decay timescale, so aggregation concentrates on burst-coordinated neighbors.
@@ -109,6 +117,7 @@ MLP (features only)                    0.60     1.000   0.500   0.667   0.856
 * Edge classification is an easier task than node classification here, not a harder one: the head is a probe of frozen embeddings, so it mostly re-discovers the dense pocket (AUC 0.951 on held-out edges). The genuinely hard negatives are the bridge edges -- ring member to benign account -- which score halfway between (0.479 vs 0.511 ring-internal, 0.421 benign): one suspicious endpoint leaks signal. A production edge model would add flow features (amount, direction, timing) rather than leaning on structure alone.
 * Recency weighting is not free: it concentrates aggregation on recent edges, which sharpens the burst but thins each node's effective neighborhood and adds variance. On this generator the dense structure is already a near-perfect signal, so the plain mean wins slightly (AUC 0.978 vs 0.950) while both crush the feature baseline (0.656). Recency earns its keep where old edges mislead -- dormant accounts, or histories that predate a compromise -- which is the next experiment, not this one. The learned timescale barely moves from its 5-day init: the loss is nearly flat in τ once the burst/background separation is strong, and its gradient (numeric-checked) is orders of magnitude smaller than the weight gradients.
 * Money-mule chains rank about as well as dense pockets (AUC 0.98 both), but the graph signal's marginal value is smaller: the MLP climbs to 0.856 from 0.656 because the organizer/consolidator/exit roles carry stronger individual tells than camouflaged ring members. A production story about "structure over features" should pick its pattern honestly -- dense pockets are where the GNN earns the biggest premium. Thin chains also need patience: the default 30-epoch schedule only reached AUC 0.78, while 120 epochs reached 0.98. Recency weighting adds nothing on the chains (0.983 vs 0.978): on an undirected graph the sequential burst is already separated by structure alone.
+* Max-pool aggregation matches or beats mean on both patterns (dense ring: AUC 1.000 vs 0.978, F1 1.000 vs 0.857; chains: tied at 0.978/0.889) -- the learned per-neighbor transform amplifies the tell direction before the max, so one strongly-suspicious neighbor suffices where mean needs the whole neighborhood to agree. It is also the stabler optimizer on the dense ring: across generator seeds 7-9 the mean model twice collapses to a degenerate checkpoint (validation BCE looks healthy, ranking broken: AUC 0.73 and 0.54 -- the same failure mode the multi-head GAT showed), while max-pool holds AUC 1.000 on all three seeds. The seed fragility is pre-existing, not introduced here: mean-mode training is bit-for-bit identical to the pre-pool code (verified: identical loss trajectories and AUC on both seeds). Two implementation details mattered: the pool transform needs its own bias (the paper has one; without it the transform starts half-dead) and He -- not Xavier -- initialization, since it feeds a ReLU.
 
 ## Roadmap
 
@@ -122,6 +131,7 @@ MLP (features only)                    0.60     1.000   0.500   0.667   0.856
 * [x] Edge classification: score flows (ring-internal vs background edges) with an MLP head over frozen GNN embeddings
 * [x] Multi-head GAT: independent attention heads (concat in layer 1, average in layer 2 per the GAT paper), per-head backprop with numeric gradient checks, per-head attention introspection, legacy checkpoint compatibility
 * [x] Money-mule chains: a second fraud pattern -- originator -> parallel mule chains -> consolidator -> exit (thin paths, ~zero triangles, monotone burst hop timestamps), per-role feature tells, and a head-to-head with the dense pocket showing where the graph signal's premium actually lives
+* [x] Max-pool aggregator: the GraphSAGE paper's pooling aggregator (`aggregator="pool"` on `SAGELayer`/`GraphSAGE`/`train_sage`) -- per-neighbor `relu(W_pool @ x + b_pool)` transform with He init, elementwise max, argmax-routed backprop (numeric-gradient-checked); head-to-head vs mean on both patterns plus a seed-robustness check showing it avoids the mean model's degenerate checkpoints
 
 ## Tests
 
@@ -129,4 +139,4 @@ MLP (features only)                    0.60     1.000   0.500   0.667   0.856
 python3 -m pytest tests/ -q
 ```
 
-100 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes), single-head bit-for-bit equivalence, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, and the headline claims: GNN AUC beats the feature-only baseline on both the dense ring and the mule-chain patterns, inductive AUC stays above 0.80 on a fresh graph, and the edge head separates ring-internal flows (AUC 0.85+) on held-out edges.
+112 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes, and the pool aggregator's argmax-routed backprop), single-head bit-for-bit equivalence, mean-mode bit-for-bit equivalence after the pool refactor, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, and the headline claims: GNN AUC beats the feature-only baseline on both the dense ring and the mule-chain patterns, the pool aggregator trains to AUC 0.95+ on the dense ring, inductive AUC stays above 0.80 on a fresh graph, and the edge head separates ring-internal flows (AUC 0.85+) on held-out edges.
