@@ -120,8 +120,9 @@ def train_sage(
         pos_weight: upweighting of fraud examples in the training loss.
             Defaults to #neg/#pos on the training set (standard for
             imbalanced fraud data).
-        aggregator: ``"mean"`` or ``"pool"`` (max-pooling aggregator from
-            the GraphSAGE paper), shared by both layers.
+        aggregator: ``"mean"``, ``"pool"`` (max-pooling aggregator from
+            the GraphSAGE paper), or ``"lstm"`` (the paper's LSTM
+            aggregator), shared by both layers.
     """
     if train_ids is None or val_ids is None:
         train_ids, val_ids = train_val_split(graph.labels, seed=seed)

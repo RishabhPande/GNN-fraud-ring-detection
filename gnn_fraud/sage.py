@@ -1,4 +1,4 @@
-"""GraphSAGE with mean or max-pool aggregation, 2 layers, from scratch.
+"""GraphSAGE with mean, max-pool, or LSTM aggregation, 2 layers, from scratch.
 
 Layer update for node ``v`` (mean mode)::
 
@@ -8,6 +8,19 @@ Max-pool mode (the GraphSAGE paper's pooling aggregator) transforms each
 neighbor first and keeps the loudest signal per dimension::
 
     h_v = relu(W_self @ x_v + W_agg @ max_u relu(W_pool @ x_u + b_pool) + b)
+
+LSTM mode (the GraphSAGE paper's LSTM aggregator) feeds the neighbors
+through an LSTM in a pseudo-random order and takes the final hidden state
+as the aggregation::
+
+    h_v = relu(W_self @ x_v + W_agg @ LSTM({x_u : u in sampled_neighbors(v)}) + b)
+
+The LSTM is not permutation-invariant, so the paper applies it to a random
+permutation of the neighbors. Here the permutation is seeded from the
+neighbor vectors themselves: the same neighborhood always feeds the LSTM
+in the same order (stable training, reproducible inference, and a fixed
+loss surface for numeric gradient checks), while different neighborhoods
+get different orders, as the paper intends.
 
 A final linear layer + sigmoid maps the layer-2 embedding to a fraud
 probability, trained with binary cross-entropy and full backprop through
@@ -61,6 +74,19 @@ def _sigmoid(z: float) -> float:
     return e / (1.0 + e)
 
 
+def _tanh_vec(v: list[float]) -> list[float]:
+    return [math.tanh(x) for x in v]
+
+
+def _lstm_order(h_neighs: list[list[float]]) -> list[int]:
+    """Pseudo-random permutation of the neighbors, seeded from the neighbor
+    vectors themselves (see the module docstring for why)."""
+    order = list(range(len(h_neighs)))
+    seed = hash(tuple(tuple(x) for x in h_neighs))
+    random.Random(seed).shuffle(order)
+    return order
+
+
 def _mean_vec(vecs: list[list[float]], dim: int) -> list[float]:
     if not vecs:
         return [0.0] * dim
@@ -79,14 +105,20 @@ def _bce(p: float, y: int) -> float:
 
 
 class SAGELayer:
-    """Single GraphSAGE layer with ReLU: ``aggregator`` is ``"mean"`` or
-    ``"pool"`` (the GraphSAGE paper's max-pooling aggregator)."""
+    """Single GraphSAGE layer with ReLU: ``aggregator`` is ``"mean"``,
+    ``"pool"`` (the GraphSAGE paper's max-pooling aggregator), or ``"lstm"``
+    (the paper's LSTM aggregator: neighbors in pseudo-random order through
+    an LSTM, final hidden state as the aggregation)."""
+
+    # LSTM gates, in the order the cell equations use them.
+    _GATES = ("i", "f", "o", "g")
 
     def __init__(self, in_dim: int, out_dim: int, rng: random.Random,
                  aggregator: str = "mean"):
-        if aggregator not in ("mean", "pool"):
+        if aggregator not in ("mean", "pool", "lstm"):
             raise ValueError(
-                f"aggregator must be 'mean' or 'pool', got {aggregator!r}")
+                "aggregator must be 'mean', 'pool' or 'lstm', "
+                f"got {aggregator!r}")
         scale = math.sqrt(2.0 / (in_dim + out_dim))  # Xavier-ish init
         self.in_dim = in_dim
         self.out_dim = out_dim
@@ -112,6 +144,30 @@ class SAGELayer:
             if aggregator == "pool" else None
         )
         self.b_pool = [0.0] * in_dim if aggregator == "pool" else None
+        # LSTM mode: one input matrix W, one recurrent matrix U, and one
+        # bias per gate, all in_dim x in_dim so the final hidden state
+        # has the same dimension as a neighbor vector (and W_agg keeps its
+        # out_dim x in_dim shape). The forget-gate bias starts at 1.0 --
+        # the standard init that keeps the cell from forgetting everything
+        # before training starts.
+        lstm_scale = math.sqrt(1.0 / in_dim)
+        if aggregator == "lstm":
+            self.lstm_W = {
+                g: [[rng.uniform(-lstm_scale, lstm_scale)
+                     for _ in range(in_dim)] for _ in range(in_dim)]
+                for g in self._GATES
+            }
+            self.lstm_U = {
+                g: [[rng.uniform(-lstm_scale, lstm_scale)
+                     for _ in range(in_dim)] for _ in range(in_dim)]
+                for g in self._GATES
+            }
+            self.lstm_b = {g: [0.0] * in_dim for g in self._GATES}
+            self.lstm_b["f"] = [1.0] * in_dim
+        else:
+            self.lstm_W = None
+            self.lstm_U = None
+            self.lstm_b = None
         self.b = [0.0] * out_dim
         self.zero_grad()
 
@@ -125,6 +181,20 @@ class SAGELayer:
         self.gb_pool = (
             [0.0] * self.in_dim if self.aggregator == "pool" else None
         )
+        if self.aggregator == "lstm":
+            self.glstm_W = {
+                g: [[0.0] * self.in_dim for _ in range(self.in_dim)]
+                for g in self._GATES
+            }
+            self.glstm_U = {
+                g: [[0.0] * self.in_dim for _ in range(self.in_dim)]
+                for g in self._GATES
+            }
+            self.glstm_b = {g: [0.0] * self.in_dim for g in self._GATES}
+        else:
+            self.glstm_W = None
+            self.glstm_U = None
+            self.glstm_b = None
         self.gb = [0.0] * self.out_dim
 
     def _pre(self, h_self: list[float], agg: list[float]) -> list[float]:
@@ -151,11 +221,92 @@ class SAGELayer:
             argmax.append(bi)
         return agg, t, argmax
 
+    def _lstm_agg(self, h_neighs: list[list[float]]):
+        """LSTM aggregation: neighbors in pseudo-random order through the
+        cell, final hidden state as the aggregation. Returns (agg, cache)
+        where cache is (order, steps) -- one step tuple per neighbor, in
+        feed order: (x, h_prev, c_prev, i, f, o, g, c_new, tanh_c_new)."""
+        if not h_neighs:
+            return [0.0] * self.in_dim, ([], [])
+        order = _lstm_order(h_neighs)
+        d = self.in_dim
+        h = [0.0] * d
+        c = [0.0] * d
+        steps = []
+        for idx in order:
+            x = h_neighs[idx]
+            gates = {}
+            for g in self._GATES:
+                pre = _vec_add(
+                    _vec_add(_matvec(self.lstm_W[g], x),
+                             _matvec(self.lstm_U[g], h)),
+                    self.lstm_b[g],
+                )
+                gates[g] = ([math.tanh(v) for v in pre] if g == "g"
+                            else [_sigmoid(v) for v in pre])
+            i, f, o, gg = gates["i"], gates["f"], gates["o"], gates["g"]
+            c_new = [f[k] * c[k] + i[k] * gg[k] for k in range(d)]
+            tanh_c = _tanh_vec(c_new)
+            h_new = [o[k] * tanh_c[k] for k in range(d)]
+            steps.append((x, h, c, i, f, o, gg, c_new, tanh_c))
+            h, c = h_new, c_new
+        return h, (order, steps)
+
+    def _lstm_backward(self, d_agg: list[float], cache
+                       ) -> list[list[float]]:
+        """Backprop through time from the final-hidden-state gradient.
+        Returns per-neighbor gradients in the ORIGINAL neighbor order."""
+        order, steps = cache
+        d = self.in_dim
+        d_shuffled: list[list[float]] = [[0.0] * d for _ in steps]
+        dh_next = list(d_agg)
+        dc_next = [0.0] * d
+        for t in range(len(steps) - 1, -1, -1):
+            x, h_prev, c_prev, i, f, o, gg, _, tanh_c = steps[t]
+            d_o = [dh_next[k] * tanh_c[k] for k in range(d)]
+            dc = [dh_next[k] * o[k] * (1.0 - tanh_c[k] ** 2) + dc_next[k]
+                  for k in range(d)]
+            d_i = [dc[k] * gg[k] for k in range(d)]
+            d_f = [dc[k] * c_prev[k] for k in range(d)]
+            d_g = [dc[k] * i[k] for k in range(d)]
+            dc_prev = [dc[k] * f[k] for k in range(d)]
+            pre = {
+                "i": [d_i[k] * i[k] * (1.0 - i[k]) for k in range(d)],
+                "f": [d_f[k] * f[k] * (1.0 - f[k]) for k in range(d)],
+                "o": [d_o[k] * o[k] * (1.0 - o[k]) for k in range(d)],
+                "g": [d_g[k] * (1.0 - gg[k] ** 2) for k in range(d)],
+            }
+            for g in self._GATES:
+                gw, gu, gb = (self.glstm_W[g], self.glstm_U[g],
+                              self.glstm_b[g])
+                for k in range(d):
+                    if pre[g][k] == 0.0:
+                        continue
+                    for j in range(d):
+                        gw[k][j] += pre[g][k] * x[j]
+                        gu[k][j] += pre[g][k] * h_prev[j]
+                    gb[k] += pre[g][k]
+            d_x = [0.0] * d
+            dh_prev = [0.0] * d
+            for g in self._GATES:
+                d_x = _vec_add(d_x, _mat_t_vec(self.lstm_W[g], pre[g]))
+                dh_prev = _vec_add(dh_prev,
+                                   _mat_t_vec(self.lstm_U[g], pre[g]))
+            d_shuffled[t] = d_x
+            dh_next, dc_next = dh_prev, dc_prev
+        d_neighs: list[list[float]] = [[0.0] * d for _ in order]
+        for t, idx in enumerate(order):
+            d_neighs[idx] = d_shuffled[t]
+        return d_neighs
+
     def forward(self, h_self: list[float], h_neighs: list[list[float]]):
         """Returns (output, cache) where cache holds everything backprop needs."""
         if self.aggregator == "pool":
             agg, t, argmax = self._pool_agg(h_neighs)
             cache = (self._pre(h_self, agg), h_self, agg, t, argmax, h_neighs)
+        elif self.aggregator == "lstm":
+            agg, lstm_cache = self._lstm_agg(h_neighs)
+            cache = (self._pre(h_self, agg), h_self, agg, lstm_cache)
         else:
             agg = _mean_vec(h_neighs, self.in_dim)
             cache = (self._pre(h_self, agg), h_self, agg, len(h_neighs))
@@ -187,7 +338,9 @@ class SAGELayer:
             self.gb[i] += di
         d_h_self = _mat_t_vec(self.W_self, d_pre)
         d_agg = _mat_t_vec(self.W_agg, d_pre)
-        if self.aggregator == "pool":
+        if self.aggregator == "lstm":
+            d_neighs = self._lstm_backward(d_agg, cache[3])
+        elif self.aggregator == "pool":
             t, argmax, h_neighs = cache[3], cache[4], cache[5]
             d_neighs = [[0.0] * self.in_dim for _ in h_neighs]
             for i in range(self.in_dim):
@@ -221,6 +374,13 @@ class SAGELayer:
                 for j in range(self.in_dim):
                     self.W_pool[i][j] -= lr * self.gW_pool[i][j]
                 self.b_pool[i] -= lr * self.gb_pool[i]
+        if self.aggregator == "lstm":
+            for g in self._GATES:
+                for i in range(self.in_dim):
+                    for j in range(self.in_dim):
+                        self.lstm_W[g][i][j] -= lr * self.glstm_W[g][i][j]
+                        self.lstm_U[g][i][j] -= lr * self.glstm_U[g][i][j]
+                    self.lstm_b[g][i] -= lr * self.glstm_b[g][i]
 
     def state_dict(self):
         state = {
@@ -232,11 +392,16 @@ class SAGELayer:
         if self.aggregator == "pool":
             state["W_pool"] = self.W_pool
             state["b_pool"] = self.b_pool
+        if self.aggregator == "lstm":
+            state["lstm_W"] = self.lstm_W
+            state["lstm_U"] = self.lstm_U
+            state["lstm_b"] = self.lstm_b
         return copy.deepcopy(state)
 
     def load_state_dict(self, state) -> None:
         # The checkpoint defines the model: a mean checkpoint (old or new
-        # format) restores a mean layer, a pool checkpoint a pool layer.
+        # format) restores a mean layer, a pool checkpoint a pool layer,
+        # an lstm checkpoint an lstm layer.
         self.aggregator = state.get("aggregator", "mean")
         self.W_self = copy.deepcopy(state["W_self"])
         self.W_agg = copy.deepcopy(state["W_agg"])
@@ -247,6 +412,14 @@ class SAGELayer:
         else:
             self.W_pool = None
             self.b_pool = None
+        if self.aggregator == "lstm":
+            self.lstm_W = copy.deepcopy(state["lstm_W"])
+            self.lstm_U = copy.deepcopy(state["lstm_U"])
+            self.lstm_b = copy.deepcopy(state["lstm_b"])
+        else:
+            self.lstm_W = None
+            self.lstm_U = None
+            self.lstm_b = None
         self.zero_grad()
 
 
@@ -259,8 +432,9 @@ class GraphSAGE:
     """Two-layer GraphSAGE for binary node classification.
 
     Args:
-        aggregator: ``"mean"`` or ``"pool"`` (max-pooling aggregator from
-            the GraphSAGE paper), shared by both layers.
+        aggregator: ``"mean"``, ``"pool"`` (max-pooling aggregator from
+            the GraphSAGE paper), or ``"lstm"`` (the paper's LSTM
+            aggregator), shared by both layers.
     """
 
     def __init__(

@@ -31,10 +31,10 @@ def _identity_pool_layer():
 
 def test_pool_invalid_aggregator_raises():
     try:
-        SAGELayer(2, 2, random.Random(0), aggregator="lstm")
+        SAGELayer(2, 2, random.Random(0), aggregator="sum")
     except ValueError:
         return
-    raise AssertionError("expected ValueError for aggregator='lstm'")
+    raise AssertionError("expected ValueError for aggregator='sum'")
 
 
 def test_pool_default_is_mean():
