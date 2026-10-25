@@ -56,6 +56,21 @@ GAT (2-layer, attention)            0.29     0.667   1.000   0.800   0.967
 Relational GraphSAGE (hetero)       0.31     0.800   1.000   0.889   0.994
 ```
 
+Same protocol with a GCN (`examples/gcn_example.py`; longer schedule --
+100 epochs, patience 25, lr 0.5 -- because the normalized aggregation
+shrinks gradients and SAGE's lr 0.1 underfits badly, AUC ~0.48-0.71):
+
+```
+GCN (2-layer, normalized)           0.31     0.500   1.000   0.667   0.944
+```
+
+GCN lands just under SAGE's mean model: the symmetric normalization
+that defines it also dilutes the ring's own signal, since ring members
+are the highest-degree nodes in the graph and their messages get
+down-weighted the most. Still far above the feature-only baseline -- a
+real architectural difference, not a tuning artifact, since both models
+train at their own best learning rate.
+
 Multi-head GAT (`examples/multihead_gat_example.py`; longer schedule --
 150 epochs, patience 40, lr 1.0 -- because the averaged final layer
 splits each head's gradient K ways):
@@ -100,6 +115,7 @@ MLP (features only)                    0.60     1.000   0.500   0.667   0.856
 
 * **Generate** (`generator.py`): N account nodes, six normalized features. Benign accounts wire sparsely at random; a planted ring forms a dense subgraph with near-camouflaged features. Weak tells individually, damning once pooled. A second pattern, `generate_mule_chain()`, plants a laundering network instead: originator -> parallel mule chains -> consolidator -> exit -- thin paths, ~zero triangles, hop timestamps monotone downstream in a late burst -- with per-role feature tells (pass-through mules, orchestration-volume organizer, emptied exit).
 * **Message-pass** (`sage.py`): two GraphSAGE layers with mean, max-pool, or LSTM aggregation, sigmoid output, positive-class-weighted BCE (fraud data is imbalanced; without it the model collapses to the base rate). Neighbor-sampled mini-batches keep training O(batch*k^2). The max-pool aggregator (the GraphSAGE paper's pooling aggregator) transforms each neighbor through `relu(W_pool @ x_u + b_pool)` -- He-initialized, since it feeds a ReLU -- then takes the elementwise max; backprop routes each dimension's gradient to its argmax neighbor. The LSTM aggregator (the paper's third aggregator) feeds neighbors through an LSTM in a pseudo-random order -- seeded from the neighbor vectors themselves, so the same neighborhood always takes the same order -- and takes the final hidden state as the aggregation, with full backprop through time (numeric-gradient-checked over all input, recurrent, and bias parameters) and a forget-gate bias initialized to 1.0. Mean-mode training is bit-for-bit unchanged (verified against the pre-pool code: identical loss trajectories and AUC).
+* **Convolve** (`gcn.py`): two-layer GCN (Kipf & Welling) with symmetric degree normalization (`D_hat^{-1/2} A_hat D_hat^{-1/2}`, self-loops included), full-graph forward -- no sampling, since the normalization needs true degrees -- and full backprop through both layers (numeric-gradient-checked, layer and end-to-end). Needs a larger step than SAGE (lr 0.5 vs 0.1): the normalized aggregation shrinks gradients. Lands just under SAGE's mean model on the dense ring (AUC 0.944 vs 0.978) because ring members are the graph's hubs and normalization down-weights their messages most.
 * **Attend** (`gat.py`): two-layer multi-head GAT, full backprop through attention (numeric-gradient-checked per head). Layer 1 concatenates head outputs, layer 2 averages them (the GAT paper's convention); `n_heads=1` reproduces the classic single-head model bit-for-bit, and legacy single-head checkpoints still load. `attention_weights(v)` shows which counterparties drove an account's score (head-averaged); `attention_weights_per_head(v)` shows each head separately.
 * **Relate** (`rsage.py`, `hetero.py`): R-GCN-lite over a heterogeneous graph. Accounts, devices, merchants as distinct node types; each relation gets its own message matrix, because a shared *device* means something different from a shared *counterparty*.
 * **Time** (`temporal.py`): edges carry timestamps; ring edges land in a fast late burst while benign edges spread over the timeline. Each layer weights neighbors by recency (`softmax(-Δt/τ)`) with a learned, log-parametrized decay timescale, so aggregation concentrates on burst-coordinated neighbors.
@@ -134,6 +150,7 @@ MLP (features only)                    0.60     1.000   0.500   0.667   0.856
 * [x] Money-mule chains: a second fraud pattern -- originator -> parallel mule chains -> consolidator -> exit (thin paths, ~zero triangles, monotone burst hop timestamps), per-role feature tells, and a head-to-head with the dense pocket showing where the graph signal's premium actually lives
 * [x] Max-pool aggregator: the GraphSAGE paper's pooling aggregator (`aggregator="pool"` on `SAGELayer`/`GraphSAGE`/`train_sage`) -- per-neighbor `relu(W_pool @ x + b_pool)` transform with He init, elementwise max, argmax-routed backprop (numeric-gradient-checked); head-to-head vs mean on both patterns plus a seed-robustness check showing it avoids the mean model's degenerate checkpoints
 * [x] LSTM aggregator: the GraphSAGE paper's third aggregator (`aggregator="lstm"` on `SAGELayer`/`GraphSAGE`/`train_sage`) -- neighbors in pseudo-random order (seeded from the neighbor vectors, so training and inference are reproducible) through a from-scratch LSTM cell, final hidden state as the aggregation, full BPTT (numeric-gradient-checked over every gate parameter), forget-bias 1.0 init, legacy checkpoint compatibility; on the seed-7 dense ring it beats mean (AUC 1.000 vs 0.978, F1 1.000 vs 0.857)
+* [x] GCN: two-layer Graph Convolutional Network (Kipf & Welling, `gcn.py`/`train_gcn`) -- symmetric degree normalization (`D_hat^{-1/2} A_hat D_hat^{-1/2}` with self-loops), full-graph forward (no sampling: the normalization needs true degrees), full backprop (numeric-gradient-checked at the layer and end-to-end); needs lr 0.5 (SAGE's 0.1 underfits, AUC ~0.48-0.71); on the seed-7 dense ring it lands just under SAGE mean (AUC 0.944 vs 0.978, F1 0.667 vs 0.857) because ring members are the graph's hubs and normalization down-weights their messages most
 
 ## Tests
 
@@ -141,4 +158,4 @@ MLP (features only)                    0.60     1.000   0.500   0.667   0.856
 python3 -m pytest tests/ -q
 ```
 
-123 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes, the pool aggregator's argmax-routed backprop, and the LSTM aggregator's BPTT over every gate parameter), single-head bit-for-bit equivalence, mean-mode bit-for-bit equivalence after the pool refactor, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, and the headline claims: GNN AUC beats the feature-only baseline on both the dense ring and the mule-chain patterns, the pool aggregator trains to AUC 0.95+ on the dense ring, the LSTM aggregator trains to AUC 0.90+ on the dense ring, inductive AUC stays above 0.80 on a fresh graph, and the edge head separates ring-internal flows (AUC 0.85+) on held-out edges.
+131 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes, the pool aggregator's argmax-routed backprop, the LSTM aggregator's BPTT over every gate parameter, and the GCN layer plus the full two-layer GCN end to end), single-head bit-for-bit equivalence, mean-mode bit-for-bit equivalence after the pool refactor, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, and the headline claims: GNN AUC beats the feature-only baseline on both the dense ring and the mule-chain patterns, the pool aggregator trains to AUC 0.95+ on the dense ring, the LSTM aggregator trains to AUC 0.90+ on the dense ring, the GCN trains to AUC 0.90+ on the dense ring, inductive AUC stays above 0.80 on a fresh graph, and the edge head separates ring-internal flows (AUC 0.85+) on held-out edges.

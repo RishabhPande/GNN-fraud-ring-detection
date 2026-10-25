@@ -23,6 +23,7 @@ from gnn_fraud.evaluate import (
     roc_auc,
 )
 from gnn_fraud.gat import GATLayer, GraphAttention
+from gnn_fraud.gcn import GCNLayer, GraphConvolution
 from gnn_fraud.generator import FEATURE_NAMES, GraphGenerator
 from gnn_fraud.graph import Graph
 from gnn_fraud.hetero import (
@@ -45,6 +46,7 @@ from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_wei
 from gnn_fraud.train import (
     train_edge_cls,
     train_gat,
+    train_gcn,
     train_hetero,
     train_sage,
     train_temporal,
@@ -63,8 +65,10 @@ __all__ = [
     "USED_BY",
     "USES",
     "GATLayer",
+    "GCNLayer",
     "Graph",
     "GraphAttention",
+    "GraphConvolution",
     "GraphGenerator",
     "GraphSAGE",
     "HeteroGenerator",
@@ -91,6 +95,7 @@ __all__ = [
     "train_edge_cls",
     "train_edge_head",
     "train_gat",
+    "train_gcn",
     "train_hetero",
     "train_mlp",
     "train_sage",
