@@ -24,6 +24,7 @@ from gnn_fraud.evaluate import (
 )
 from gnn_fraud.gat import GATLayer, GraphAttention
 from gnn_fraud.gcn import GCNLayer, GraphConvolution
+from gnn_fraud.gin import GINLayer, GraphIsomorphism
 from gnn_fraud.generator import FEATURE_NAMES, GraphGenerator
 from gnn_fraud.graph import Graph
 from gnn_fraud.hetero import (
@@ -47,6 +48,7 @@ from gnn_fraud.train import (
     train_edge_cls,
     train_gat,
     train_gcn,
+    train_gin,
     train_hetero,
     train_sage,
     train_temporal,
@@ -66,9 +68,11 @@ __all__ = [
     "USES",
     "GATLayer",
     "GCNLayer",
+    "GINLayer",
     "Graph",
     "GraphAttention",
     "GraphConvolution",
+    "GraphIsomorphism",
     "GraphGenerator",
     "GraphSAGE",
     "HeteroGenerator",
@@ -96,6 +100,7 @@ __all__ = [
     "train_edge_head",
     "train_gat",
     "train_gcn",
+    "train_gin",
     "train_hetero",
     "train_mlp",
     "train_sage",
