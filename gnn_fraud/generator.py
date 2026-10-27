@@ -81,6 +81,36 @@ EXIT_DIST = {
     "unique_counterparties": (0.30, 0.15),  # tell: talks to almost nobody
 }
 
+# Smurfing roles. One source splits a large sum into many small amounts
+# -- each just below a reporting threshold -- routed through smurf
+# intermediaries to a single collector. Smurfs are pass-through accounts
+# like mules, but the signature is fan-out/fan-in, not a chain: the
+# source and the collector are hubs, every smurf hangs off both.
+SMURF_DIST = {
+    "account_age": (0.45, 0.22),         # tell: fresh accounts
+    "avg_txn_amount": (0.28, 0.15),      # tell: small structured amounts
+    "txn_count": (0.55, 0.18),           # tell: many small transactions
+    "balance": (0.40, 0.20),             # tell: pass-through, low retention
+    "night_txn_ratio": (0.20, 0.10),     # tell: night activity
+    "unique_counterparties": (0.45, 0.20),  # camouflaged: source + sink only
+}
+SOURCE_DIST = {
+    "account_age": (0.60, 0.22),
+    "avg_txn_amount": (0.28, 0.15),      # tell: sends the small amounts
+    "txn_count": (0.65, 0.15),           # tell: fans out to every smurf
+    "balance": (0.50, 0.25),
+    "night_txn_ratio": (0.20, 0.10),
+    "unique_counterparties": (0.70, 0.15),  # tell: touches every smurf
+}
+SINK_DIST = {
+    "account_age": (0.50, 0.22),
+    "avg_txn_amount": (0.45, 0.20),      # tell: consolidated cash-out
+    "txn_count": (0.50, 0.18),
+    "balance": (0.30, 0.18),             # tell: emptied on cash-out
+    "night_txn_ratio": (0.20, 0.10),
+    "unique_counterparties": (0.65, 0.15),  # tell: fans in from every smurf
+}
+
 
 def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
@@ -320,5 +350,119 @@ class GraphGenerator:
             "chains": chains,
             "consolidator": consolidator,
             "exit": exit_node,
+        }
+        return g
+
+    def generate_smurfing(
+        self,
+        n: int = 200,
+        n_smurfs: int = 16,
+        edge_prob: float = 0.008,
+        bridge_edges: int = 6,
+        timestamps: bool = True,
+        timeline_days: float = 30.0,
+        burst_days: float = 3.0,
+    ) -> Graph:
+        """Build a graph with a planted smurfing (structuring) network.
+
+        A third fraud pattern alongside the dense pocket in
+        :meth:`generate` and the mule chains in
+        :meth:`generate_mule_chain`. One source splits a large sum into
+        many small amounts -- each just below a reporting threshold --
+        and routes them through ``n_smurfs`` intermediaries to a single
+        collector::
+
+            source -> [smurf x n_smurfs] -> sink
+
+        The signature is fan-out/fan-in, not density and not a path:
+        the source and the sink are hubs (degree ``n_smurfs`` inside the
+        network), every smurf hangs off exactly those two, and smurfs
+        never transact with each other, so the network has no triangles
+        at all. Each smurf's hop pair is fast and late: money arrives
+        from the source and leaves for the sink inside the burst window,
+        in that order, so the temporal model sees a fan of near-simultaneous
+        structured hops rather than a sequential chain.
+
+        Args:
+            n: total account nodes.
+            n_smurfs: number of smurf intermediaries.
+            edge_prob: probability of a benign edge between any two
+                non-fraud accounts.
+            bridge_edges: a few edges from smurfs to benign accounts, so
+                the network is not trivially isolated.
+            timestamps: stamp every edge with a time. Smurf hops land
+                in a fast late burst, in-flow before out-flow per smurf;
+                benign and bridge edges spread uniformly.
+            timeline_days: length of the observation window ("now" is its
+                end).
+            burst_days: width of the late burst window the hops land in.
+
+        Returns:
+            The graph. The planted layout is attached as
+            ``graph.smurfing`` -- a dict with keys ``source``,
+            ``smurfs`` (list of node ids), and ``sink``. All fraud nodes
+            are labeled 1 (so :meth:`ring_nodes` lists them too).
+        """
+        fraud_n = n_smurfs + 2  # source + smurfs + sink
+        if fraud_n >= n:
+            raise ValueError("smurfing network must be smaller than n")
+        g = Graph(n, len(FEATURE_NAMES))
+        burst_start = timeline_days - burst_days
+
+        fraud_ids = self.rng.sample(range(n), fraud_n)
+        source = fraud_ids[0]
+        sink = fraud_ids[-1]
+        smurfs = fraud_ids[1:-1]
+        fraud_set = set(fraud_ids)
+
+        # Features: smurfs are near-camouflaged pass-through accounts
+        # moving small amounts; the source fans out, the sink cashes out.
+        for u in range(n):
+            if u == source:
+                dist = SOURCE_DIST
+            elif u == sink:
+                dist = SINK_DIST
+            elif u in fraud_set:
+                dist = SMURF_DIST
+            else:
+                dist = BENIGN_DIST
+            g.set_features(u, self._sample_from(dist))
+
+        # Labels: the whole structuring network is fraud.
+        for u in fraud_ids:
+            g.set_label(u, 1)
+
+        # Benign edges between non-fraud accounts.
+        benign = [u for u in range(n) if u not in fraud_set]
+        for i, u in enumerate(benign):
+            for v in benign[i + 1:]:
+                if self.rng.random() < edge_prob:
+                    g.add_edge(u, v, time=(
+                        self._background_time(timeline_days)
+                        if timestamps else None))
+
+        # Smurf hops: source -> smurf -> sink, in-flow before out-flow,
+        # both inside the late burst window.
+        def _ts(t: float) -> float | None:
+            return t if timestamps else None
+
+        for s in smurfs:
+            t_in = self.trng.uniform(burst_start, timeline_days - 1.0)
+            t_out = min(t_in + self.trng.uniform(0.2, 1.0), timeline_days)
+            g.add_edge(source, s, time=_ts(t_in))
+            g.add_edge(s, sink, time=_ts(t_out))
+
+        # Bridge edges from smurfs to benign accounts.
+        for _ in range(bridge_edges):
+            u = self.rng.choice(smurfs)
+            v = self.rng.choice(benign)
+            g.add_edge(u, v, time=(
+                self._background_time(timeline_days)
+                if timestamps else None))
+
+        g.smurfing = {
+            "source": source,
+            "smurfs": smurfs,
+            "sink": sink,
         }
         return g
