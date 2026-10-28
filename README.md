@@ -4,6 +4,8 @@
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen)
+[![Tests](https://github.com/RishabhPande/GNN-fraud-ring-detection/actions/workflows/tests.yml/badge.svg)](https://github.com/RishabhPande/GNN-fraud-ring-detection/actions/workflows/tests.yml)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/RishabhPande/GNN-fraud-ring-detection)
 
 **GraphSAGE and GAT from scratch in pure Python. Zero dependencies. Built to catch fraud rings.**
 
@@ -216,3 +218,11 @@ python3 -m pytest tests/ -q
 ## Contributing
 
 Contributions welcome: see CONTRIBUTING.md.
+
+## Part of a fraud-ML series
+
+- [Agentic Fraud Investigator](https://github.com/RishabhPande/agentic-fraud-investigator) - A multi-agent fraud investigation system in pure Python, zero dependencies.
+- [ID-document-forgery-detection-CV-](https://github.com/RishabhPande/ID-document-forgery-detection-CV-) - Classic image forensics for ID-document forgery detection, written from scratch in pure Python, zero dependencies.
+- [Time-series-anomaly-detection](https://github.com/RishabhPande/Time-series-anomaly-detection) - Time-series anomaly detection, including collective anomalies
+- [fraud-eval](https://github.com/RishabhPande/fraud-eval) - Open benchmark for evaluating LLM-based fraud and abuse detectors (20-case smoke test, cost-aware metrics, counterfactual evaluation)
+- [fraud-rings](https://github.com/RishabhPande/fraud-rings) - Synthetic identity-fraud ring generator plus graph-based detection, all in pure Python, no dependencies.
