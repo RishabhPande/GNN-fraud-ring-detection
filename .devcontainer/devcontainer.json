@@ -1,0 +1,1 @@
+{"image":"mcr.microsoft.com/devcontainers/python:3.10","name":"gnn-fraud","postCreateCommand":"pip install -e ."}
