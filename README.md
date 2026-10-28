@@ -13,6 +13,16 @@ This repo generates that pattern synthetically and learns it with graph neural n
 
 > **Disclaimer:** every account in this repo is synthetic. No real people, no real transactions, no real PII anywhere. The generator exists so GNN detectors can be built, tested, and benchmarked without touching sensitive data.
 
+## Seed robustness at a glance
+
+| Seed-robustness sweep | Result |
+|---|---|
+| GIN + LSTM, AUC/F1, seeds 7-9 | 1.000 |
+| Mean aggregation, AUC, seed 8 | 0.728 |
+| Mean aggregation, AUC, seed 9 | 0.539 |
+
+Test suite: 148 tests. Full per-seed table in Results below.
+
 ## Try it in 30 seconds
 
 Click **Open in Colab** above, or run locally:
@@ -202,3 +212,7 @@ python3 -m pytest tests/ -q
 ```
 
 148 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes, the pool aggregator's argmax-routed backprop, the LSTM aggregator's BPTT over every gate parameter, the GCN layer plus the full two-layer GCN end to end, and the GIN layer's sum aggregation, MLP, and learnable eps plus the full two-layer GIN end to end), single-head bit-for-bit equivalence, mean-mode bit-for-bit equivalence after the pool refactor, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, smurfing fan-out/fan-in topology (hub degrees, zero triangles, hop-pair timestamp ordering)/determinism, and the headline claims: GNN AUC beats the feature-only baseline on the dense ring, the mule-chain, and the smurfing patterns, the pool aggregator trains to AUC 0.95+ on the dense ring, the LSTM aggregator trains to AUC 0.90+ on the dense ring, the GCN trains to AUC 0.90+ on the dense ring, the GIN trains to AUC 0.90+ on the dense ring, inductive AUC stays above 0.80 on a fresh graph, the edge head separates ring-internal flows (AUC 0.85+) on held-out edges, and GIN plus LSTM hold AUC/F1 0.90+ on seed 9, the seed where mean aggregation collapses hardest (AUC 0.539).
+
+## Contributing
+
+Contributions welcome: see CONTRIBUTING.md.
