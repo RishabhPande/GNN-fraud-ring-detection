@@ -43,6 +43,7 @@ from gnn_fraud.hetero_gen import HeteroGenerator
 from gnn_fraud.inductive import inductive_evaluate, score_new_nodes
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE, SAGELayer
+from gnn_fraud.sgc import SimpleGraphConvolution, propagate_features
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
     train_edge_cls,
@@ -51,6 +52,7 @@ from gnn_fraud.train import (
     train_gin,
     train_hetero,
     train_sage,
+    train_sgc,
     train_temporal,
     train_val_split,
 )
@@ -81,6 +83,7 @@ __all__ = [
     "RelSAGELayer",
     "RelationalGraphSAGE",
     "SAGELayer",
+    "SimpleGraphConvolution",
     "TemporalGraphSAGE",
     "TemporalSAGELayer",
     "EdgeHead",
@@ -92,6 +95,7 @@ __all__ = [
     "full_embeddings",
     "inductive_evaluate",
     "precision_recall_f1",
+    "propagate_features",
     "recency_weights",
     "roc_auc",
     "score_edges",
@@ -104,6 +108,7 @@ __all__ = [
     "train_hetero",
     "train_mlp",
     "train_sage",
+    "train_sgc",
     "train_temporal",
     "train_val_split",
 ]
