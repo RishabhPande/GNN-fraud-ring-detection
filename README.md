@@ -1,6 +1,7 @@
 # GNN Fraud Ring Detection
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RishabhPande/GNN-fraud-ring-detection/blob/main/examples/quickstart.py)
+[![DOI](https://zenodo.org/badge/23749421.svg)](https://doi.org/10.5281/zenodo.23749421)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-157%20passing-brightgreen)
