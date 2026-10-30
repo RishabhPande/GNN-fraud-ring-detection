@@ -4,7 +4,7 @@
 [![DOI](https://zenodo.org/badge/23749421.svg)](https://doi.org/10.5281/zenodo.23749421)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
-![Tests](https://img.shields.io/badge/tests-168%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen)
 [![Tests](https://github.com/RishabhPande/GNN-fraud-ring-detection/actions/workflows/tests.yml/badge.svg)](https://github.com/RishabhPande/GNN-fraud-ring-detection/actions/workflows/tests.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/RishabhPande/GNN-fraud-ring-detection)
 
@@ -24,7 +24,7 @@ This repo generates that pattern synthetically and learns it with graph neural n
 | Mean aggregation, AUC, seed 8 | 0.728 |
 | Mean aggregation, AUC, seed 9 | 0.539 |
 
-Test suite: 168 tests. Full per-seed table in Results below.
+Test suite: 171 tests. Full per-seed table in Results below.
 
 ## Try it in 30 seconds
 
@@ -56,9 +56,9 @@ GraphSAGE (2-layer, max-pool agg)  0.41     1.000   1.000   1.000   1.000
 MLP (features only)                0.23     0.286   0.500   0.364   0.656
 ```
 
-![Synthetic transaction graph with the planted ring highlighted, and GraphSAGE versus MLP validation metrics](docs/ring.png)
+![Ring detection: planted ring vs GraphSAGE fraud scores](docs/ring-detection.svg)
 
-*Left: the quickstart graph (seed 7). The ring is dense (0.63) while the rest of the graph is sparse. The layout is illustrative: ring members are placed on a circle by hand and everyone else by a rough spring pass, so distances mean nothing. Right: the quickstart's validation metrics. The held-out set is small (49 accounts, 4 in the ring), so read this as one seed, not a benchmark; the seed-robustness table above is the better guide. Regenerate with `python examples/plot_ring.py` (needs numpy and matplotlib).*
+*Left: the planted ring (red) inside 200 synthetic accounts, seed 7. Right: the same layout with nodes shaded by GraphSAGE fraud-score rank (darkest red = highest score). The layout is force-directed and knows nothing about the labels: the ring clusters on its own because it is wired densely, while benign accounts scatter. That is the whole pitch in one picture: one account at a time the ring looks ordinary, and the wiring gives it away. Regenerate with `python examples/visualize_ring.py` (pure Python, no new dependencies; the script also prints the quickstart validation numbers it is drawn from).*
 
 Same protocol with max-pool aggregation (`examples/pool_example.py`): each
 neighbor is transformed through `relu(W_pool @ x_u + b_pool)` and the layer
@@ -232,6 +232,7 @@ are no longer single-seed claims.
 * [x] Seed-robustness sweep (`examples/seed_robustness_example.py`): the dense-ring protocol rerun on fresh graphs for seeds 7-9 (graph, split, and init all re-seeded) -- max-pool, LSTM, and GIN hold AUC 1.000 / F1 1.000 on all three seeds while mean collapses on seeds 8-9 (AUC 0.728, 0.539), retiring the GIN/LSTM one-seed caveats and showing the mean fragility is aggregator-specific, not protocol-wide
 * [x] SGC: Simplified Graph Convolution (Wu et al., `sgc.py`/`train_sgc`) -- K-hop symmetric-normalized propagation then logistic regression, the GCN with its hidden layer and nonlinearity removed; on the seed-7 dense ring it lands within 0.016 AUC of the GCN (0.928 vs 0.944, same F1 0.667), showing the ring's signal lives in the propagated features themselves
 * [x] GATv2: dynamic attention (Brody et al., `gatv2.py`/`train_gatv2`) -- score from `a . LeakyReLU(W_att @ [h_v || h_u])` so neighbor ranking can depend on the query node, full backprop numeric-gradient-checked in concat and average modes, hand-computed ranking flip that GAT cannot express; on the seed-7 dense ring it edges out GAT (AUC 0.978 vs 0.967, F1 0.889 vs 0.800) while its trained attention stays perfectly diffuse (entropy gap 0.000), so the gain is parameterization, not selective listening
+* [x] Demo visualization (`examples/visualize_ring.py` -> `docs/ring-detection.svg`, embedded above): two-panel figure from the quickstart protocol -- planted ring vs GraphSAGE fraud-score rank on the same force-directed layout (pure Python, no new dependencies). It replaces the earlier `plot_ring.py` figure, whose layout placed ring members on a circle by hand and needed numpy and matplotlib. Rank shading, not a raw 0-to-1 scale: the model's raw scores sit in a narrow band (strong ranking, weak calibration), so raw shading would render every node the same pale gray.
 
 ## Tests
 
@@ -239,7 +240,7 @@ are no longer single-seed claims.
 python3 -m pytest tests/ -q
 ```
 
-168 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes, the GATv2 pair-map backprop in concat and average modes plus its query-dependent ranking flip, the pool aggregator's argmax-routed backprop, the LSTM aggregator's BPTT over every gate parameter, the GCN layer plus the full two-layer GCN end to end, the GIN layer's sum aggregation, MLP, and learnable eps plus the full two-layer GIN end to end, and the SGC logistic head over propagated features), single-head bit-for-bit equivalence, mean-mode bit-for-bit equivalence after the pool refactor, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, smurfing fan-out/fan-in topology (hub degrees, zero triangles, hop-pair timestamp ordering)/determinism, SGC propagation hand-computed on two-node, star, and isolated-node graphs plus its hops=0 logistic-regression equivalence, and the headline claims: GNN AUC beats the feature-only baseline on the dense ring, the mule-chain, and the smurfing patterns, the pool aggregator trains to AUC 0.95+ on the dense ring, the LSTM aggregator trains to AUC 0.90+ on the dense ring, the GCN trains to AUC 0.90+ on the dense ring, the GIN trains to AUC 0.90+ on the dense ring, the SGC trains to AUC 0.90+ on the dense ring, the GATv2 trains to AUC 0.90+ on the dense ring, inductive AUC stays above 0.80 on a fresh graph, the edge head separates ring-internal flows (AUC 0.85+) on held-out edges, and GIN plus LSTM hold AUC/F1 0.90+ on seed 9, the seed where mean aggregation collapses hardest (AUC 0.539).
+171 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes, the GATv2 pair-map backprop in concat and average modes plus its query-dependent ranking flip, the pool aggregator's argmax-routed backprop, the LSTM aggregator's BPTT over every gate parameter, the GCN layer plus the full two-layer GCN end to end, the GIN layer's sum aggregation, MLP, and learnable eps plus the full two-layer GIN end to end, and the SGC logistic head over propagated features), single-head bit-for-bit equivalence, mean-mode bit-for-bit equivalence after the pool refactor, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, smurfing fan-out/fan-in topology (hub degrees, zero triangles, hop-pair timestamp ordering)/determinism, SGC propagation hand-computed on two-node, star, and isolated-node graphs plus its hops=0 logistic-regression equivalence, and the headline claims: GNN AUC beats the feature-only baseline on the dense ring, the mule-chain, and the smurfing patterns, the pool aggregator trains to AUC 0.95+ on the dense ring, the LSTM aggregator trains to AUC 0.90+ on the dense ring, the GCN trains to AUC 0.90+ on the dense ring, the GIN trains to AUC 0.90+ on the dense ring, the SGC trains to AUC 0.90+ on the dense ring, the GATv2 trains to AUC 0.90+ on the dense ring, inductive AUC stays above 0.80 on a fresh graph, the edge head separates ring-internal flows (AUC 0.85+) on held-out edges, and GIN plus LSTM hold AUC/F1 0.90+ on seed 9, the seed where mean aggregation collapses hardest (AUC 0.539), and the demo visualization's deterministic layout, score-color scale, and two-panel SVG structure.
 
 ## Contributing
 
