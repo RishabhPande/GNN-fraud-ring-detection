@@ -56,6 +56,10 @@ GraphSAGE (2-layer, max-pool agg)  0.41     1.000   1.000   1.000   1.000
 MLP (features only)                0.23     0.286   0.500   0.364   0.656
 ```
 
+![Synthetic transaction graph with the planted ring highlighted, and GraphSAGE versus MLP validation metrics](docs/ring.png)
+
+*Left: the quickstart graph (seed 7). The ring is dense (0.63) while the rest of the graph is sparse. The layout is illustrative: ring members are placed on a circle by hand and everyone else by a rough spring pass, so distances mean nothing. Right: the quickstart's validation metrics. The held-out set is small (49 accounts, 4 in the ring), so read this as one seed, not a benchmark; the seed-robustness table above is the better guide. Regenerate with `python examples/plot_ring.py` (needs numpy and matplotlib).*
+
 Same protocol with max-pool aggregation (`examples/pool_example.py`): each
 neighbor is transformed through `relu(W_pool @ x_u + b_pool)` and the layer
 keeps the elementwise max -- the single loudest tell per dimension, not the
