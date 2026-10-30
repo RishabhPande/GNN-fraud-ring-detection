@@ -11,6 +11,7 @@ from gnn_fraud.edge_cls import (
     train_edge_head,
 )
 from gnn_fraud.gat import GraphAttention
+from gnn_fraud.gatv2 import GraphAttentionV2
 from gnn_fraud.gcn import GraphConvolution
 from gnn_fraud.gin import GraphIsomorphism
 from gnn_fraud.rsage import RelationalGraphSAGE
@@ -380,6 +381,41 @@ def train_gat(
     model = GraphAttention(graph.feature_dim, hidden_dim=hidden_dim, lr=lr,
                            seed=seed, negative_slope=negative_slope,
                            n_heads=n_heads)
+    return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
+                       epochs, patience, seed, pos_weight)
+
+
+def train_gatv2(
+    graph,
+    train_ids: list[int] | None = None,
+    val_ids: list[int] | None = None,
+    hidden_dim: int = 16,
+    k1: int = 3,
+    k2: int = 3,
+    lr: float = 0.1,
+    batch_size: int = 64,
+    epochs: int = 30,
+    patience: int = 5,
+    seed: int = 0,
+    pos_weight: float | None = None,
+    negative_slope: float = 0.2,
+    n_heads: int = 1,
+) -> tuple[GraphAttentionV2, dict]:
+    """Train a 2-layer multi-head GATv2 with neighbor-sampled mini-batches.
+
+    Same protocol as :func:`train_gat` (early stopping on validation
+    loss, best-checkpoint restore). Returns (model, history). Layer 1
+    concatenates head outputs; layer 2 averages them (final-layer style,
+    per the GAT paper). ``n_heads=1`` is exactly the single-head model.
+    """
+    if train_ids is None or val_ids is None:
+        train_ids, val_ids = train_val_split(graph.labels, seed=seed)
+    if pos_weight is None:
+        pos_weight = 3.0
+
+    model = GraphAttentionV2(graph.feature_dim, hidden_dim=hidden_dim, lr=lr,
+                             seed=seed, negative_slope=negative_slope,
+                             n_heads=n_heads)
     return _train_loop(model, graph, train_ids, val_ids, k1, k2, batch_size,
                        epochs, patience, seed, pos_weight)
 
