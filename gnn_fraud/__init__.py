@@ -6,6 +6,7 @@ built, tested, and benchmarked without touching real accounts, real
 transactions, or real PII.
 """
 
+from gnn_fraud.appnp import APPNP, propagate_predictions
 from gnn_fraud.baseline import MLP, train_mlp
 from gnn_fraud.edge_cls import (
     EdgeHead,
@@ -47,6 +48,7 @@ from gnn_fraud.sage import GraphSAGE, SAGELayer
 from gnn_fraud.sgc import SimpleGraphConvolution, propagate_features
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
+    train_appnp,
     train_edge_cls,
     train_gat,
     train_gatv2,
@@ -61,6 +63,7 @@ from gnn_fraud.train import (
 
 __all__ = [
     "ACCOUNT",
+    "APPNP",
     "DEVICE",
     "FEATURE_NAMES",
     "MERCHANT",
@@ -100,10 +103,12 @@ __all__ = [
     "inductive_evaluate",
     "precision_recall_f1",
     "propagate_features",
+    "propagate_predictions",
     "recency_weights",
     "roc_auc",
     "score_edges",
     "score_new_nodes",
+    "train_appnp",
     "train_edge_cls",
     "train_edge_head",
     "train_gat",
