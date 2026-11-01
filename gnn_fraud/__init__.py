@@ -43,6 +43,7 @@ from gnn_fraud.hetero import (
 )
 from gnn_fraud.hetero_gen import HeteroGenerator
 from gnn_fraud.inductive import inductive_evaluate, score_new_nodes
+from gnn_fraud.jk import JumpingKnowledgeGCN
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE, SAGELayer
 from gnn_fraud.sgc import SimpleGraphConvolution, propagate_features
@@ -55,6 +56,7 @@ from gnn_fraud.train import (
     train_gcn,
     train_gin,
     train_hetero,
+    train_jk,
     train_sage,
     train_sgc,
     train_temporal,
@@ -101,6 +103,7 @@ __all__ = [
     "evaluate_all",
     "full_embeddings",
     "inductive_evaluate",
+    "JumpingKnowledgeGCN",
     "precision_recall_f1",
     "propagate_features",
     "propagate_predictions",
@@ -116,6 +119,7 @@ __all__ = [
     "train_gcn",
     "train_gin",
     "train_hetero",
+    "train_jk",
     "train_mlp",
     "train_sage",
     "train_sgc",
