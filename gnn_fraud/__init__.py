@@ -8,6 +8,7 @@ transactions, or real PII.
 
 from gnn_fraud.appnp import APPNP, propagate_predictions
 from gnn_fraud.baseline import MLP, train_mlp
+from gnn_fraud.cheb import ChebLayer, GraphChebyshev
 from gnn_fraud.edge_cls import (
     EdgeHead,
     edge_labels,
@@ -50,6 +51,7 @@ from gnn_fraud.sgc import SimpleGraphConvolution, propagate_features
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
     train_appnp,
+    train_cheb,
     train_edge_cls,
     train_gat,
     train_gatv2,
@@ -75,9 +77,11 @@ __all__ = [
     "TRANSFERS",
     "USED_BY",
     "USES",
+    "ChebLayer",
     "GATLayer",
     "GATv2Layer",
     "GCNLayer",
+    "GraphChebyshev",
     "GINLayer",
     "Graph",
     "GraphAttention",
@@ -112,6 +116,7 @@ __all__ = [
     "score_edges",
     "score_new_nodes",
     "train_appnp",
+    "train_cheb",
     "train_edge_cls",
     "train_edge_head",
     "train_gat",
