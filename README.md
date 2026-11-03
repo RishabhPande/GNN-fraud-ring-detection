@@ -24,7 +24,7 @@ This repo generates that pattern synthetically and learns it with graph neural n
 | Mean aggregation, AUC, seed 8 | 0.728 |
 | Mean aggregation, AUC, seed 9 | 0.539 |
 
-Test suite: 192 tests. Full per-seed table in Results below.
+Test suite: 198 tests. Full per-seed table in Results below.
 
 ## Try it in 30 seconds
 
@@ -211,6 +211,25 @@ plain GCN (AUC 0.944) it is closest to: each layer mixes the 0-, 1-, and
 so the ring's dense pocket survives without the hub down-weighting that
 costs the GCN. One seed only, like the other GCN-family headlines.
 
+Same protocol with a GCNII (`examples/gcnii_example.py`; input GCN layer
++ 4 GCNII layers, alpha 0.2, same 100-epoch schedule):
+
+```
+GCNII (input + 4 layers)           0.14     0.571   1.000   0.727   0.944
+GCNII deep (input + 8 layers)      0.16     0.571   1.000   0.727   0.950
+GCN (2-layer)                      0.31     0.500   1.000   0.667   0.944
+GraphSAGE (2-layer, mean agg)      0.28     1.000   0.750   0.857   0.978
+```
+
+GCNII ties the plain GCN on AUC (0.944 both) and edges it on F1 (0.727
+vs 0.667), while still trailing SAGE mean (0.978). The residual's real
+payoff is depth: the 8-layer stack reaches 0.950 AUC instead of
+collapsing the way a plain deep GCN oversmooths, because every layer
+mixes back the input layer's representation and the identity-shrunk
+weights keep the gradient alive. Alpha matters: the paper's 0.1 lands
+just under 0.90 AUC here (0.894), 0.2 reaches 0.944. One seed only, like
+the other GCN-family headlines.
+
 ## What's inside
 
 * **Generate** (`generator.py`): N account nodes, six normalized features. Benign accounts wire sparsely at random; a planted ring forms a dense subgraph with near-camouflaged features. Weak tells individually, damning once pooled. A second pattern, `generate_mule_chain()`, plants a laundering network instead: originator -> parallel mule chains -> consolidator -> exit -- thin paths, ~zero triangles, hop timestamps monotone downstream in a late burst -- with per-role feature tells (pass-through mules, orchestration-volume organizer, emptied exit). A third pattern, `generate_smurfing()`, plants a structuring network: one source -> N smurf intermediaries -> one collector -- fan-out/fan-in hubs and spokes, zero triangles, in-flow-before-out-flow hop pairs inside a late burst -- with per-role tells (small-amount pass-through smurfs, fan-out source, emptied collector).
@@ -280,6 +299,7 @@ backwards (numeric-gradient-checked at the layer and end to end).
 * [x] Demo visualization (`examples/visualize_ring.py` -> `docs/ring-detection.svg`, embedded above): two-panel figure from the quickstart protocol -- planted ring vs GraphSAGE fraud-score rank on the same force-directed layout (pure Python, no new dependencies). It replaces the earlier `plot_ring.py` figure, whose layout placed ring members on a circle by hand and needed numpy and matplotlib. Rank shading, not a raw 0-to-1 scale: the model's raw scores sit in a narrow band (strong ranking, weak calibration), so raw shading would render every node the same pale gray.
 * [x] Jumping Knowledge GCN (Xu et al., `jk.py`/`train_jk`)
 * [x] ChebNet: Chebyshev spectral convolution (Defferrard et al., `cheb.py`/`train_cheb`) -- two layers with `K = 2` per layer, rescaled normalized Laplacian under the `lambda_max ~= 2` approximation, full backprop through the polynomial recurrence (numeric-gradient-checked at the layer and end to end); on the seed-7 dense ring it matches the repo's best models (AUC 1.000, F1 1.000) and beats the plain GCN (AUC 0.944), since the learned per-term weights keep each node's own features without the GCN's hub down-weighting -- two GCN layers with a `[layer-1 || layer-2]` output head, full backprop with the split gradient into layer 1 (numeric-gradient-checked end to end); on the seed-7 dense ring it beats the plain GCN (AUC 0.972 vs 0.944, F1 0.800 vs 0.667) while still trailing SAGE mean and max-pool, showing the second aggregation was washing out some pocket signal but normalization is the remaining gap
+* [x] GCNII: deep GCN with initial residual connections and identity mapping (Chen et al., `gcnii.py`/`train_gcnii`) -- input GCN layer plus GCNII layers with `beta_l = log(lam / l + 1)`, full backprop through the stack including the residual branches (numeric-gradient-checked at the layer and end to end); on the seed-7 dense ring the 4-layer model ties the plain GCN on AUC (0.944 both, F1 0.727 vs 0.667) and the 8-layer stack still reaches AUC 0.950, showing depth without oversmoothing collapse; alpha defaults to 0.2, since the paper's 0.1 lands at 0.894 here
 
 ## Tests
 
@@ -287,7 +307,7 @@ backwards (numeric-gradient-checked at the layer and end to end).
 python3 -m pytest tests/ -q
 ```
 
-192 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes, the GATv2 pair-map backprop in concat and average modes plus its query-dependent ranking flip, the pool aggregator's argmax-routed backprop, the LSTM aggregator's BPTT over every gate parameter, the GCN layer plus the full two-layer GCN end to end, the GIN layer's sum aggregation, MLP, and learnable eps plus the full two-layer GIN end to end, the SGC logistic head over propagated features, and the APPNP propagation-plus-MLP backward including the teleport and starting-point gradient terms, and the JK-GCN concatenation split gradient into layer 1, and the ChebNet layer's per-term weights plus the full two-layer ChebNet end to end, including its reverse polynomial recurrence), single-head bit-for-bit equivalence, mean-mode bit-for-bit equivalence after the pool refactor, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, smurfing fan-out/fan-in topology (hub degrees, zero triangles, hop-pair timestamp ordering)/determinism, SGC propagation hand-computed on two-node, star, and isolated-node graphs plus its hops=0 logistic-regression equivalence, APPNP propagation hand-computed on two-node graphs plus its alpha=0/alpha=1/steps=0 edges and its steps=0 MLP equivalence, and the headline claims: GNN AUC beats the feature-only baseline on the dense ring, the mule-chain, and the smurfing patterns, the pool aggregator trains to AUC 0.95+ on the dense ring, the LSTM aggregator trains to AUC 0.90+ on the dense ring, the GCN trains to AUC 0.90+ on the dense ring, the GIN trains to AUC 0.90+ on the dense ring, the SGC trains to AUC 0.90+ on the dense ring, the APPNP trains to AUC 0.90+ on the dense ring, the GATv2 trains to AUC 0.90+ on the dense ring, the JK-GCN trains to AUC 0.90+ on the dense ring, the ChebNet trains to AUC 0.90+ on the dense ring, inductive AUC stays above 0.80 on a fresh graph, the edge head separates ring-internal flows (AUC 0.85+) on held-out edges, and GIN plus LSTM hold AUC/F1 0.90+ on seed 9, the seed where mean aggregation collapses hardest (AUC 0.539), and the demo visualization's deterministic layout, score-color scale, and two-panel SVG structure.
+198 tests cover hand-computed forward/backward passes, gradient checks (including per-head multi-head attention in both concat and average modes, the GATv2 pair-map backprop in concat and average modes plus its query-dependent ranking flip, the pool aggregator's argmax-routed backprop, the LSTM aggregator's BPTT over every gate parameter, the GCN layer plus the full two-layer GCN end to end, the GIN layer's sum aggregation, MLP, and learnable eps plus the full two-layer GIN end to end, the SGC logistic head over propagated features, and the APPNP propagation-plus-MLP backward including the teleport and starting-point gradient terms, and the JK-GCN concatenation split gradient into layer 1, and the ChebNet layer's per-term weights plus the full two-layer ChebNet end to end, including its reverse polynomial recurrence, and the GCNII layer's residual-plus-identity transform plus the full GCNII model end to end, including the residual-branch gradient accumulation), single-head bit-for-bit equivalence, mean-mode bit-for-bit equivalence after the pool refactor, legacy checkpoint loading, generator camouflage, metric correctness, sampling bounds, mule-chain topology/timestamp ordering/determinism, smurfing fan-out/fan-in topology (hub degrees, zero triangles, hop-pair timestamp ordering)/determinism, SGC propagation hand-computed on two-node, star, and isolated-node graphs plus its hops=0 logistic-regression equivalence, APPNP propagation hand-computed on two-node graphs plus its alpha=0/alpha=1/steps=0 edges and its steps=0 MLP equivalence, and the headline claims: GNN AUC beats the feature-only baseline on the dense ring, the mule-chain, and the smurfing patterns, the pool aggregator trains to AUC 0.95+ on the dense ring, the LSTM aggregator trains to AUC 0.90+ on the dense ring, the GCN trains to AUC 0.90+ on the dense ring, the GIN trains to AUC 0.90+ on the dense ring, the SGC trains to AUC 0.90+ on the dense ring, the APPNP trains to AUC 0.90+ on the dense ring, the GATv2 trains to AUC 0.90+ on the dense ring, the JK-GCN trains to AUC 0.90+ on the dense ring, the ChebNet trains to AUC 0.90+ on the dense ring, the GCNII trains to AUC 0.90+ on the dense ring and its 8-layer stack holds AUC 0.90+, inductive AUC stays above 0.80 on a fresh graph, the edge head separates ring-internal flows (AUC 0.85+) on held-out edges, and GIN plus LSTM hold AUC/F1 0.90+ on seed 9, the seed where mean aggregation collapses hardest (AUC 0.539), and the demo visualization's deterministic layout, score-color scale, and two-panel SVG structure.
 
 ## Contributing
 
