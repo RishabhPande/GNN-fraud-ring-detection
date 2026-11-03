@@ -1,5 +1,7 @@
 cff-version: 1.2.0
 title: "GNN Fraud Ring Detection"
+version: "1.1.0"
+doi: "10.5281/zenodo.23749421"
 authors:
   - given-names: Rishabh
     family-names: Pande
