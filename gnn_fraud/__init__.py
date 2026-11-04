@@ -49,6 +49,7 @@ from gnn_fraud.jk import JumpingKnowledgeGCN
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE, SAGELayer
 from gnn_fraud.sgc import SimpleGraphConvolution, propagate_features
+from gnn_fraud.tag import GraphTAG, TAGLayer
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
     train_appnp,
@@ -63,6 +64,7 @@ from gnn_fraud.train import (
     train_jk,
     train_sage,
     train_sgc,
+    train_tag,
     train_temporal,
     train_val_split,
 )
@@ -94,6 +96,7 @@ __all__ = [
     "GraphIsomorphism",
     "GraphGenerator",
     "GraphSAGE",
+    "GraphTAG",
     "HeteroGenerator",
     "HeteroGraph",
     "RELATION_NAMES",
@@ -101,6 +104,7 @@ __all__ = [
     "RelationalGraphSAGE",
     "SAGELayer",
     "SimpleGraphConvolution",
+    "TAGLayer",
     "TemporalGraphSAGE",
     "TemporalSAGELayer",
     "EdgeHead",
@@ -133,6 +137,7 @@ __all__ = [
     "train_mlp",
     "train_sage",
     "train_sgc",
+    "train_tag",
     "train_temporal",
     "train_val_split",
 ]
