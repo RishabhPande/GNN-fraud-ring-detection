@@ -29,6 +29,7 @@ from gnn_fraud.gatv2 import GATv2Layer, GraphAttentionV2
 from gnn_fraud.gcn import GCNLayer, GraphConvolution
 from gnn_fraud.gcnii import GCNIIConv, GraphGCNII
 from gnn_fraud.gin import GINLayer, GraphIsomorphism
+from gnn_fraud.gpr import GPRGNN, ppr_gamma_init, propagate_hidden
 from gnn_fraud.generator import FEATURE_NAMES, GraphGenerator
 from gnn_fraud.graph import Graph
 from gnn_fraud.hetero import (
@@ -61,6 +62,7 @@ from gnn_fraud.train import (
     train_gatv2,
     train_gcn,
     train_gin,
+    train_gpr,
     train_hetero,
     train_jk,
     train_pna,
@@ -90,6 +92,7 @@ __all__ = [
     "GCNIIConv",
     "GraphChebyshev",
     "GraphGCNII",
+    "GPRGNN",
     "GINLayer",
     "Graph",
     "GraphAttention",
@@ -121,7 +124,9 @@ __all__ = [
     "inductive_evaluate",
     "JumpingKnowledgeGCN",
     "precision_recall_f1",
+    "ppr_gamma_init",
     "propagate_features",
+    "propagate_hidden",
     "propagate_predictions",
     "recency_weights",
     "roc_auc",
@@ -136,6 +141,7 @@ __all__ = [
     "train_gcn",
     "train_gcnii",
     "train_gin",
+    "train_gpr",
     "train_hetero",
     "train_jk",
     "train_mlp",
