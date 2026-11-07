@@ -24,7 +24,7 @@ This repo generates that pattern synthetically and learns it with graph neural n
 | Mean aggregation, AUC, seed 8 | 0.728 |
 | Mean aggregation, AUC, seed 9 | 0.539 |
 
-Test suite: 218 tests. Full per-seed table in Results below.
+Test suite: 238 tests. Full per-seed table in Results below.
 
 ## Try it in 30 seconds
 
