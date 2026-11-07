@@ -47,6 +47,7 @@ from gnn_fraud.hetero import (
 from gnn_fraud.hetero_gen import HeteroGenerator
 from gnn_fraud.inductive import inductive_evaluate, score_new_nodes
 from gnn_fraud.jk import JumpingKnowledgeGCN
+from gnn_fraud.mixhop import GraphMixHop, MixHopLayer
 from gnn_fraud.pna import GraphPNA, PNALayer
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE, SAGELayer
@@ -65,6 +66,7 @@ from gnn_fraud.train import (
     train_gpr,
     train_hetero,
     train_jk,
+    train_mixhop,
     train_pna,
     train_sage,
     train_sgc,
@@ -99,6 +101,7 @@ __all__ = [
     "GraphAttentionV2",
     "GraphConvolution",
     "GraphIsomorphism",
+    "GraphMixHop",
     "GraphGenerator",
     "GraphPNA",
     "GraphSAGE",
@@ -123,6 +126,7 @@ __all__ = [
     "full_embeddings",
     "inductive_evaluate",
     "JumpingKnowledgeGCN",
+    "MixHopLayer",
     "precision_recall_f1",
     "ppr_gamma_init",
     "propagate_features",
@@ -144,6 +148,7 @@ __all__ = [
     "train_gpr",
     "train_hetero",
     "train_jk",
+    "train_mixhop",
     "train_mlp",
     "train_pna",
     "train_sage",
