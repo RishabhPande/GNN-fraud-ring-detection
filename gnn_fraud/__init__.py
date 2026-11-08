@@ -30,6 +30,7 @@ from gnn_fraud.gcn import GCNLayer, GraphConvolution
 from gnn_fraud.gcnii import GCNIIConv, GraphGCNII
 from gnn_fraud.gin import GINLayer, GraphIsomorphism
 from gnn_fraud.gpr import GPRGNN, ppr_gamma_init, propagate_hidden
+from gnn_fraud.h2gcn import GraphH2GCN, H2GCNLayer
 from gnn_fraud.generator import FEATURE_NAMES, GraphGenerator
 from gnn_fraud.graph import Graph
 from gnn_fraud.hetero import (
@@ -64,6 +65,7 @@ from gnn_fraud.train import (
     train_gcn,
     train_gin,
     train_gpr,
+    train_h2gcn,
     train_hetero,
     train_jk,
     train_mixhop,
@@ -95,6 +97,8 @@ __all__ = [
     "GraphChebyshev",
     "GraphGCNII",
     "GPRGNN",
+    "GraphH2GCN",
+    "H2GCNLayer",
     "GINLayer",
     "Graph",
     "GraphAttention",
@@ -146,6 +150,7 @@ __all__ = [
     "train_gcnii",
     "train_gin",
     "train_gpr",
+    "train_h2gcn",
     "train_hetero",
     "train_jk",
     "train_mixhop",
