@@ -53,6 +53,7 @@ from gnn_fraud.pna import GraphPNA, PNALayer
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE, SAGELayer
 from gnn_fraud.sgc import SimpleGraphConvolution, propagate_features
+from gnn_fraud.sign import SIGN, sign_features
 from gnn_fraud.tag import GraphTAG, TAGLayer
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
@@ -72,6 +73,7 @@ from gnn_fraud.train import (
     train_pna,
     train_sage,
     train_sgc,
+    train_sign,
     train_tag,
     train_temporal,
     train_val_split,
@@ -117,6 +119,7 @@ __all__ = [
     "RelSAGELayer",
     "RelationalGraphSAGE",
     "SAGELayer",
+    "SIGN",
     "SimpleGraphConvolution",
     "TAGLayer",
     "TemporalGraphSAGE",
@@ -134,6 +137,7 @@ __all__ = [
     "precision_recall_f1",
     "ppr_gamma_init",
     "propagate_features",
+    "sign_features",
     "propagate_hidden",
     "propagate_predictions",
     "recency_weights",
@@ -158,6 +162,7 @@ __all__ = [
     "train_pna",
     "train_sage",
     "train_sgc",
+    "train_sign",
     "train_tag",
     "train_temporal",
     "train_val_split",

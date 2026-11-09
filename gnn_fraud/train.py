@@ -25,6 +25,7 @@ from gnn_fraud.pna import GraphPNA
 from gnn_fraud.rsage import RelationalGraphSAGE
 from gnn_fraud.sage import GraphSAGE
 from gnn_fraud.sgc import SimpleGraphConvolution
+from gnn_fraud.sign import SIGN
 from gnn_fraud.tag import GraphTAG
 from gnn_fraud.temporal import TemporalGraphSAGE
 
@@ -532,6 +533,74 @@ def train_sgc(
 
     model = SimpleGraphConvolution(graph.feature_dim, hops=hops,
                                    lr=lr, seed=seed)
+    labels = {v: graph.labels[v] for v in train_ids}
+    rng = random.Random(seed)
+    train_ids = list(train_ids)
+    history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+
+    best_val = float("inf")
+    best_state = None
+    bad_epochs = 0
+
+    for _ in range(epochs):
+        rng.shuffle(train_ids)
+        batch_losses = []
+        for i in range(0, len(train_ids), batch_size):
+            batch = train_ids[i:i + batch_size]
+            batch_losses.append(
+                model.train_batch(graph, batch, labels,
+                                  pos_weight=pos_weight))
+        history["train_loss"].append(sum(batch_losses) / len(batch_losses))
+        val_loss = _val_loss(model, graph, val_ids)
+        history["val_loss"].append(val_loss)
+
+        if val_loss < best_val - 1e-6:
+            best_val = val_loss
+            best_state = model.state_dict()
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if bad_epochs >= patience:
+                break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    return model, history
+
+
+def train_sign(
+    graph,
+    train_ids: list[int] | None = None,
+    val_ids: list[int] | None = None,
+    hops: int = 2,
+    hidden_dim: int = 16,
+    lr: float = 0.5,
+    batch_size: int = 64,
+    epochs: int = 30,
+    patience: int = 5,
+    seed: int = 0,
+    pos_weight: float | None = None,
+) -> tuple[SIGN, dict]:
+    """Train a SIGN with early stopping on validation loss and
+    best-checkpoint restore. Same protocol as :func:`train_sgc`:
+    propagation needs true degrees, so each step embeds the whole graph
+    and scores the batch's targets (see :mod:`gnn_fraud.sign`).
+
+    Args:
+        hops: deepest propagation round concatenated into the MLP input
+            (blocks 0..``hops``). Defaults to 2, matching SGC's depth
+            and the two layers of the GCN it ablates; 0 degrades exactly
+            to an MLP on raw node features.
+        pos_weight: upweighting of fraud examples in the training loss.
+            Defaults to 3.0, the same value :func:`train_sage` uses.
+    """
+    if train_ids is None or val_ids is None:
+        train_ids, val_ids = train_val_split(graph.labels, seed=seed)
+    if pos_weight is None:
+        pos_weight = 3.0
+
+    model = SIGN(graph.feature_dim, hops=hops, hidden_dim=hidden_dim,
+                 lr=lr, seed=seed)
     labels = {v: graph.labels[v] for v in train_ids}
     rng = random.Random(seed)
     train_ids = list(train_ids)
