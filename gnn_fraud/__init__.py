@@ -8,6 +8,7 @@ transactions, or real PII.
 
 from gnn_fraud.appnp import APPNP, propagate_predictions
 from gnn_fraud.baseline import MLP, train_mlp
+from gnn_fraud.bern import BernNet, bern_theta_init, bernstein_filter_coeffs, bernstein_terms
 from gnn_fraud.cheb import ChebLayer, GraphChebyshev
 from gnn_fraud.edge_cls import (
     EdgeHead,
@@ -58,6 +59,7 @@ from gnn_fraud.tag import GraphTAG, TAGLayer
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
     train_appnp,
+    train_bern,
     train_cheb,
     train_edge_cls,
     train_gcnii,
@@ -82,6 +84,7 @@ from gnn_fraud.train import (
 __all__ = [
     "ACCOUNT",
     "APPNP",
+    "BernNet",
     "DEVICE",
     "FEATURE_NAMES",
     "MERCHANT",
@@ -125,6 +128,9 @@ __all__ = [
     "TemporalGraphSAGE",
     "TemporalSAGELayer",
     "EdgeHead",
+    "bern_theta_init",
+    "bernstein_filter_coeffs",
+    "bernstein_terms",
     "best_threshold_f1",
     "edge_labels",
     "edge_phi",
@@ -145,6 +151,7 @@ __all__ = [
     "score_edges",
     "score_new_nodes",
     "train_appnp",
+    "train_bern",
     "train_cheb",
     "train_edge_cls",
     "train_edge_head",
