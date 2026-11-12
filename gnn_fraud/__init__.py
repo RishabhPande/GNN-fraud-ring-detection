@@ -28,6 +28,7 @@ from gnn_fraud.evaluate import (
 from gnn_fraud.gat import GATLayer, GraphAttention
 from gnn_fraud.gatv2 import GATv2Layer, GraphAttentionV2
 from gnn_fraud.gcn import GCNLayer, GraphConvolution
+from gnn_fraud.ggnn import GGNN
 from gnn_fraud.gcnii import GCNIIConv, GraphGCNII
 from gnn_fraud.gin import GINLayer, GraphIsomorphism
 from gnn_fraud.gpr import GPRGNN, ppr_gamma_init, propagate_hidden
@@ -64,6 +65,7 @@ from gnn_fraud.train import (
     train_edge_cls,
     train_gcnii,
     train_gat,
+    train_ggnn,
     train_gatv2,
     train_gcn,
     train_gin,
@@ -104,6 +106,7 @@ __all__ = [
     "GPRGNN",
     "GraphH2GCN",
     "H2GCNLayer",
+    "GGNN",
     "GINLayer",
     "Graph",
     "GraphAttention",
@@ -157,6 +160,7 @@ __all__ = [
     "train_edge_head",
     "train_gat",
     "train_gatv2",
+    "train_ggnn",
     "train_gcn",
     "train_gcnii",
     "train_gin",
