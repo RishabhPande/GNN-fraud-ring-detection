@@ -25,6 +25,7 @@ from gnn_fraud.evaluate import (
     precision_recall_f1,
     roc_auc,
 )
+from gnn_fraud.film import FiLMLayer, GraphFiLM
 from gnn_fraud.gat import GATLayer, GraphAttention
 from gnn_fraud.gatv2 import GATv2Layer, GraphAttentionV2
 from gnn_fraud.gcn import GCNLayer, GraphConvolution
@@ -63,6 +64,7 @@ from gnn_fraud.train import (
     train_bern,
     train_cheb,
     train_edge_cls,
+    train_film,
     train_gcnii,
     train_gat,
     train_ggnn,
@@ -97,6 +99,7 @@ __all__ = [
     "USED_BY",
     "USES",
     "ChebLayer",
+    "FiLMLayer",
     "GATLayer",
     "GATv2Layer",
     "GCNLayer",
@@ -111,6 +114,7 @@ __all__ = [
     "Graph",
     "GraphAttention",
     "GraphAttentionV2",
+    "GraphFiLM",
     "GraphConvolution",
     "GraphIsomorphism",
     "GraphMixHop",
@@ -158,6 +162,7 @@ __all__ = [
     "train_cheb",
     "train_edge_cls",
     "train_edge_head",
+    "train_film",
     "train_gat",
     "train_gatv2",
     "train_ggnn",
