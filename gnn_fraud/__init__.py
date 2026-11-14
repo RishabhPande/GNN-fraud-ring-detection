@@ -7,6 +7,7 @@ transactions, or real PII.
 """
 
 from gnn_fraud.appnp import APPNP, propagate_predictions
+from gnn_fraud.arma import ARMALayer, GraphARMA, normalized_propagate
 from gnn_fraud.baseline import MLP, train_mlp
 from gnn_fraud.bern import BernNet, bern_theta_init, bernstein_filter_coeffs, bernstein_terms
 from gnn_fraud.cheb import ChebLayer, GraphChebyshev
@@ -61,6 +62,7 @@ from gnn_fraud.tag import GraphTAG, TAGLayer
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
     train_appnp,
+    train_arma,
     train_bern,
     train_cheb,
     train_edge_cls,
@@ -88,6 +90,7 @@ from gnn_fraud.train import (
 __all__ = [
     "ACCOUNT",
     "APPNP",
+    "ARMALayer",
     "BernNet",
     "DEVICE",
     "FEATURE_NAMES",
@@ -107,6 +110,7 @@ __all__ = [
     "GraphChebyshev",
     "GraphGCNII",
     "GPRGNN",
+    "GraphARMA",
     "GraphH2GCN",
     "H2GCNLayer",
     "GGNN",
@@ -148,6 +152,7 @@ __all__ = [
     "JumpingKnowledgeGCN",
     "MixHopLayer",
     "precision_recall_f1",
+    "normalized_propagate",
     "ppr_gamma_init",
     "propagate_features",
     "sign_features",
@@ -158,6 +163,7 @@ __all__ = [
     "score_edges",
     "score_new_nodes",
     "train_appnp",
+    "train_arma",
     "train_bern",
     "train_cheb",
     "train_edge_cls",
