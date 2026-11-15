@@ -51,6 +51,13 @@ from gnn_fraud.hetero import (
 )
 from gnn_fraud.hetero_gen import HeteroGenerator
 from gnn_fraud.inductive import inductive_evaluate, score_new_nodes
+from gnn_fraud.jacobi import (
+    JacobiConv,
+    jacobi_filter_coeffs,
+    jacobi_polys,
+    jacobi_terms,
+    jacobi_theta_init,
+)
 from gnn_fraud.jk import JumpingKnowledgeGCN
 from gnn_fraud.mixhop import GraphMixHop, MixHopLayer
 from gnn_fraud.pna import GraphPNA, PNALayer
@@ -76,6 +83,7 @@ from gnn_fraud.train import (
     train_gpr,
     train_h2gcn,
     train_hetero,
+    train_jacobi,
     train_jk,
     train_mixhop,
     train_pna,
@@ -126,6 +134,7 @@ __all__ = [
     "GraphPNA",
     "GraphSAGE",
     "GraphTAG",
+    "JacobiConv",
     "HeteroGenerator",
     "HeteroGraph",
     "RELATION_NAMES",
@@ -149,6 +158,10 @@ __all__ = [
     "evaluate_all",
     "full_embeddings",
     "inductive_evaluate",
+    "jacobi_filter_coeffs",
+    "jacobi_polys",
+    "jacobi_terms",
+    "jacobi_theta_init",
     "JumpingKnowledgeGCN",
     "MixHopLayer",
     "precision_recall_f1",
@@ -178,6 +191,7 @@ __all__ = [
     "train_gpr",
     "train_h2gcn",
     "train_hetero",
+    "train_jacobi",
     "train_jk",
     "train_mixhop",
     "train_mlp",
