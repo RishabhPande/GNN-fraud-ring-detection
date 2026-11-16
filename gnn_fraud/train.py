@@ -8,6 +8,7 @@ from gnn_fraud.appnp import APPNP
 from gnn_fraud.arma import GraphARMA
 from gnn_fraud.bern import BernNet
 from gnn_fraud.cheb import GraphChebyshev
+from gnn_fraud.dagnn import DAGNN
 from gnn_fraud.gpr import GPRGNN
 from gnn_fraud.edge_cls import (
     edge_labels,
@@ -1575,6 +1576,74 @@ def train_jacobi(
 
     model = JacobiConv(graph.feature_dim, hidden_dim=hidden_dim, K=K,
                        a=a, b=b, lr=lr, seed=seed)
+    labels = {v: graph.labels[v] for v in train_ids}
+    rng = random.Random(seed)
+    train_ids = list(train_ids)
+    history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+
+    best_val = float("inf")
+    best_state = None
+    bad_epochs = 0
+
+    for _ in range(epochs):
+        rng.shuffle(train_ids)
+        batch_losses = []
+        for i in range(0, len(train_ids), batch_size):
+            batch = train_ids[i:i + batch_size]
+            batch_losses.append(
+                model.train_batch(graph, batch, labels,
+                                  pos_weight=pos_weight))
+        history["train_loss"].append(sum(batch_losses) / len(batch_losses))
+        val_loss = _val_loss(model, graph, val_ids)
+        history["val_loss"].append(val_loss)
+
+        if val_loss < best_val - 1e-6:
+            best_val = val_loss
+            best_state = model.state_dict()
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if bad_epochs >= patience:
+                break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    return model, history
+
+
+def train_dagnn(
+    graph,
+    train_ids: list[int] | None = None,
+    val_ids: list[int] | None = None,
+    hidden_dim: int = 16,
+    steps: int = 10,
+    lr: float = 0.5,
+    batch_size: int = 64,
+    epochs: int = 30,
+    patience: int = 5,
+    seed: int = 0,
+    pos_weight: float | None = None,
+) -> tuple[DAGNN, dict]:
+    """Train a DAGNN with early stopping on validation loss and
+    best-checkpoint restore. Same protocol as :func:`train_gpr`:
+    propagation needs the whole graph, so each step embeds every node
+    and scores the batch's targets (see :mod:`gnn_fraud.dagnn`).
+
+    Args:
+        steps: propagation rounds whose hidden states enter each
+            node's adaptive sum. Defaults to 10, the DAGNN paper's
+            value; the per-node attention, not a fixed schedule,
+            decides how much of each step a node actually uses.
+        pos_weight: upweighting of fraud examples in the training loss.
+            Defaults to 3.0, the same value :func:`train_sage` uses.
+    """
+    if train_ids is None or val_ids is None:
+        train_ids, val_ids = train_val_split(graph.labels, seed=seed)
+    if pos_weight is None:
+        pos_weight = 3.0
+
+    model = DAGNN(graph.feature_dim, hidden_dim=hidden_dim, steps=steps,
+                  lr=lr, seed=seed)
     labels = {v: graph.labels[v] for v in train_ids}
     rng = random.Random(seed)
     train_ids = list(train_ids)
