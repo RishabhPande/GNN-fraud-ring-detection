@@ -31,6 +31,7 @@ from gnn_fraud.film import FiLMLayer, GraphFiLM
 from gnn_fraud.gat import GATLayer, GraphAttention
 from gnn_fraud.gatv2 import GATv2Layer, GraphAttentionV2
 from gnn_fraud.gcn import GCNLayer, GraphConvolution
+from gnn_fraud.gconv import GraphConvLayer, GraphConvNet
 from gnn_fraud.ggnn import GGNN
 from gnn_fraud.gcnii import GCNIIConv, GraphGCNII
 from gnn_fraud.gin import GINLayer, GraphIsomorphism
@@ -81,6 +82,7 @@ from gnn_fraud.train import (
     train_ggnn,
     train_gatv2,
     train_gcn,
+    train_gconv,
     train_gin,
     train_gpr,
     train_h2gcn,
@@ -130,6 +132,8 @@ __all__ = [
     "GraphAttention",
     "GraphAttentionV2",
     "GraphFiLM",
+    "GraphConvLayer",
+    "GraphConvNet",
     "GraphConvolution",
     "GraphIsomorphism",
     "GraphMixHop",
@@ -191,6 +195,7 @@ __all__ = [
     "train_gatv2",
     "train_ggnn",
     "train_gcn",
+    "train_gconv",
     "train_gcnii",
     "train_gin",
     "train_gpr",
