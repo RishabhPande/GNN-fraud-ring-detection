@@ -6,6 +6,7 @@ built, tested, and benchmarked without touching real accounts, real
 transactions, or real PII.
 """
 
+from gnn_fraud.agnn import AGNN, attention_weights_for, propagate_attention
 from gnn_fraud.appnp import APPNP, propagate_predictions
 from gnn_fraud.arma import ARMALayer, GraphARMA, normalized_propagate
 from gnn_fraud.baseline import MLP, train_mlp
@@ -70,6 +71,7 @@ from gnn_fraud.sign import SIGN, sign_features
 from gnn_fraud.tag import GraphTAG, TAGLayer
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
 from gnn_fraud.train import (
+    train_agnn,
     train_appnp,
     train_arma,
     train_bern,
@@ -101,6 +103,7 @@ from gnn_fraud.train import (
 
 __all__ = [
     "ACCOUNT",
+    "AGNN",
     "APPNP",
     "ARMALayer",
     "BernNet",
@@ -155,6 +158,7 @@ __all__ = [
     "TemporalGraphSAGE",
     "TemporalSAGELayer",
     "EdgeHead",
+    "attention_weights_for",
     "bern_theta_init",
     "bernstein_filter_coeffs",
     "bernstein_terms",
@@ -175,6 +179,7 @@ __all__ = [
     "precision_recall_f1",
     "normalized_propagate",
     "ppr_gamma_init",
+    "propagate_attention",
     "propagate_features",
     "sign_features",
     "propagate_hidden",
@@ -183,6 +188,7 @@ __all__ = [
     "roc_auc",
     "score_edges",
     "score_new_nodes",
+    "train_agnn",
     "train_appnp",
     "train_arma",
     "train_bern",
