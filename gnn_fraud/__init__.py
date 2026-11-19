@@ -28,6 +28,7 @@ from gnn_fraud.evaluate import (
     precision_recall_f1,
     roc_auc,
 )
+from gnn_fraud.fagcn import FAGCN, frequency_split
 from gnn_fraud.film import FiLMLayer, GraphFiLM
 from gnn_fraud.gat import GATLayer, GraphAttention
 from gnn_fraud.gatv2 import GATv2Layer, GraphAttentionV2
@@ -78,6 +79,7 @@ from gnn_fraud.train import (
     train_cheb,
     train_dagnn,
     train_edge_cls,
+    train_fagcn,
     train_film,
     train_gcnii,
     train_gat,
@@ -158,6 +160,8 @@ __all__ = [
     "TemporalGraphSAGE",
     "TemporalSAGELayer",
     "EdgeHead",
+    "FAGCN",
+    "frequency_split",
     "attention_weights_for",
     "bern_theta_init",
     "bernstein_filter_coeffs",
@@ -196,6 +200,7 @@ __all__ = [
     "train_dagnn",
     "train_edge_cls",
     "train_edge_head",
+    "train_fagcn",
     "train_film",
     "train_gat",
     "train_gatv2",
