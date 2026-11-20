@@ -12,6 +12,14 @@ from gnn_fraud.arma import ARMALayer, GraphARMA, normalized_propagate
 from gnn_fraud.baseline import MLP, train_mlp
 from gnn_fraud.bern import BernNet, bern_theta_init, bernstein_filter_coeffs, bernstein_terms
 from gnn_fraud.cheb import ChebLayer, GraphChebyshev
+from gnn_fraud.chebii import (
+    ChebNetII,
+    chebii_cheb_coeffs,
+    chebii_filter_coeffs,
+    chebii_gamma_init,
+    chebii_nodes,
+    chebii_terms,
+)
 from gnn_fraud.dagnn import DAGNN, hop_attention
 from gnn_fraud.edge_cls import (
     EdgeHead,
@@ -77,6 +85,7 @@ from gnn_fraud.train import (
     train_arma,
     train_bern,
     train_cheb,
+    train_chebii,
     train_dagnn,
     train_edge_cls,
     train_fagcn,
@@ -119,6 +128,12 @@ __all__ = [
     "USED_BY",
     "USES",
     "ChebLayer",
+    "ChebNetII",
+    "chebii_cheb_coeffs",
+    "chebii_filter_coeffs",
+    "chebii_gamma_init",
+    "chebii_nodes",
+    "chebii_terms",
     "DAGNN",
     "FiLMLayer",
     "GATLayer",
@@ -197,6 +212,7 @@ __all__ = [
     "train_arma",
     "train_bern",
     "train_cheb",
+    "train_chebii",
     "train_dagnn",
     "train_edge_cls",
     "train_edge_head",
