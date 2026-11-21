@@ -11,6 +11,7 @@ from gnn_fraud.bern import BernNet
 from gnn_fraud.cheb import GraphChebyshev
 from gnn_fraud.chebii import ChebNetII
 from gnn_fraud.dagnn import DAGNN
+from gnn_fraud.gdc import GraphDiffusion
 from gnn_fraud.gpr import GPRGNN
 from gnn_fraud.edge_cls import (
     edge_labels,
@@ -1909,6 +1910,76 @@ def train_chebii(
         pos_weight = 3.0
     model = ChebNetII(graph.feature_dim, hidden_dim=hidden_dim, K=K,
                       lr=lr, seed=seed)
+    labels = {v: graph.labels[v] for v in train_ids}
+    rng = random.Random(seed)
+    train_ids = list(train_ids)
+    history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+    best_val = float("inf")
+    best_state = None
+    bad_epochs = 0
+    for _ in range(epochs):
+        rng.shuffle(train_ids)
+        batch_losses = []
+        for i in range(0, len(train_ids), batch_size):
+            batch = train_ids[i:i + batch_size]
+            batch_losses.append(
+                model.train_batch(graph, batch, labels,
+                                  pos_weight=pos_weight))
+        history["train_loss"].append(sum(batch_losses) / len(batch_losses))
+        val_loss = _val_loss(model, graph, val_ids)
+        history["val_loss"].append(val_loss)
+        if val_loss < best_val - 1e-6:
+            best_val = val_loss
+            best_state = model.state_dict()
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if bad_epochs >= patience:
+                break
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    return model, history
+
+
+def train_gdc(
+    graph,
+    train_ids: list[int] | None = None,
+    val_ids: list[int] | None = None,
+    hidden_dim: int = 16,
+    K: int = 6,
+    t_init: float = 2.0,
+    lr: float = 0.5,
+    batch_size: int = 64,
+    epochs: int = 100,
+    patience: int = 25,
+    seed: int = 0,
+    pos_weight: float | None = None,
+) -> tuple[GraphDiffusion, dict]:
+    """Train a GDC heat-kernel diffusion model with early stopping
+    on validation loss and best-checkpoint restore. Same protocol
+    as :func:`train_bern`: the diffusion needs the whole graph, so
+    each step embeds every node and scores the batch's targets
+    (see :mod:`gnn_fraud.gdc`).
+
+    The default schedule is the GCN family's (100 epochs, patience
+    25, lr 0.5), like the other propagation models: the normalized
+    propagation shrinks gradients, and the learned log-time trains
+    at the same step.
+
+    Args:
+        K: truncation order of the heat kernel (powers 0..K enter
+            the diffusion). Each order costs one more propagation.
+        t_init: initial diffusion time; the Poisson weights start
+            centered near 2 hops and ``log_t`` is learned from there.
+        pos_weight: upweighting of fraud examples in the training loss.
+            Defaults to 3.0, the same value :func:`train_sage` uses.
+    """
+    if train_ids is None or val_ids is None:
+        train_ids, val_ids = train_val_split(graph.labels, seed=seed)
+    if pos_weight is None:
+        pos_weight = 3.0
+    model = GraphDiffusion(graph.feature_dim, hidden_dim=hidden_dim,
+                           K=K, lr=lr, seed=seed, t_init=t_init)
     labels = {v: graph.labels[v] for v in train_ids}
     rng = random.Random(seed)
     train_ids = list(train_ids)

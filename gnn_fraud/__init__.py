@@ -39,6 +39,7 @@ from gnn_fraud.evaluate import (
 from gnn_fraud.fagcn import FAGCN, frequency_split
 from gnn_fraud.film import FiLMLayer, GraphFiLM
 from gnn_fraud.gat import GATLayer, GraphAttention
+from gnn_fraud.gdc import GraphDiffusion, diffusion_powers, heat_kernel_coeffs
 from gnn_fraud.gatv2 import GATv2Layer, GraphAttentionV2
 from gnn_fraud.gcn import GCNLayer, GraphConvolution
 from gnn_fraud.gconv import GraphConvLayer, GraphConvNet
@@ -92,6 +93,7 @@ from gnn_fraud.train import (
     train_film,
     train_gcnii,
     train_gat,
+    train_gdc,
     train_ggnn,
     train_gatv2,
     train_gcn,
@@ -151,6 +153,7 @@ __all__ = [
     "Graph",
     "GraphAttention",
     "GraphAttentionV2",
+    "GraphDiffusion",
     "GraphFiLM",
     "GraphConvLayer",
     "GraphConvNet",
@@ -182,11 +185,13 @@ __all__ = [
     "bernstein_filter_coeffs",
     "bernstein_terms",
     "best_threshold_f1",
+    "diffusion_powers",
     "edge_labels",
     "edge_phi",
     "edge_train_val_split",
     "evaluate_all",
     "full_embeddings",
+    "heat_kernel_coeffs",
     "hop_attention",
     "inductive_evaluate",
     "jacobi_filter_coeffs",
@@ -220,6 +225,7 @@ __all__ = [
     "train_film",
     "train_gat",
     "train_gatv2",
+    "train_gdc",
     "train_ggnn",
     "train_gcn",
     "train_gconv",
