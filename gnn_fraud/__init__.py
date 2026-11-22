@@ -75,6 +75,7 @@ from gnn_fraud.jk import JumpingKnowledgeGCN
 from gnn_fraud.mixhop import GraphMixHop, MixHopLayer
 from gnn_fraud.pna import GraphPNA, PNALayer
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
+from gnn_fraud.s2gc import S2GC, averaged_propagation, propagation_powers as s2gc_propagation_powers
 from gnn_fraud.sage import GraphSAGE, SAGELayer
 from gnn_fraud.sgc import SimpleGraphConvolution, propagate_features
 from gnn_fraud.sign import SIGN, sign_features
@@ -106,6 +107,7 @@ from gnn_fraud.train import (
     train_jk,
     train_mixhop,
     train_pna,
+    train_s2gc,
     train_sage,
     train_sgc,
     train_sign,
@@ -171,6 +173,7 @@ __all__ = [
     "PNALayer",
     "RelSAGELayer",
     "RelationalGraphSAGE",
+    "S2GC",
     "SAGELayer",
     "SIGN",
     "SimpleGraphConvolution",
@@ -181,6 +184,8 @@ __all__ = [
     "FAGCN",
     "frequency_split",
     "attention_weights_for",
+    "averaged_propagation",
+    "s2gc_propagation_powers",
     "bern_theta_init",
     "bernstein_filter_coeffs",
     "bernstein_terms",
@@ -239,6 +244,7 @@ __all__ = [
     "train_mixhop",
     "train_mlp",
     "train_pna",
+    "train_s2gc",
     "train_sage",
     "train_sgc",
     "train_sign",
