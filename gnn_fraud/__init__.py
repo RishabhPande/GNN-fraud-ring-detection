@@ -81,6 +81,7 @@ from gnn_fraud.sgc import SimpleGraphConvolution, propagate_features
 from gnn_fraud.sign import SIGN, sign_features
 from gnn_fraud.tag import GraphTAG, TAGLayer
 from gnn_fraud.temporal import TemporalGraphSAGE, TemporalSAGELayer, recency_weights
+from gnn_fraud.vnode import VNodeLayer, VirtualNodeSAGE, global_mean, neighbor_means
 from gnn_fraud.train import (
     train_agnn,
     train_appnp,
@@ -113,6 +114,7 @@ from gnn_fraud.train import (
     train_sign,
     train_tag,
     train_temporal,
+    train_vnode,
     train_val_split,
 )
 
@@ -179,6 +181,10 @@ __all__ = [
     "SimpleGraphConvolution",
     "TAGLayer",
     "TemporalGraphSAGE",
+    "VNodeLayer",
+    "VirtualNodeSAGE",
+    "global_mean",
+    "neighbor_means",
     "TemporalSAGELayer",
     "EdgeHead",
     "FAGCN",
@@ -250,5 +256,6 @@ __all__ = [
     "train_sign",
     "train_tag",
     "train_temporal",
+    "train_vnode",
     "train_val_split",
 ]
