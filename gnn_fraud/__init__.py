@@ -72,6 +72,7 @@ from gnn_fraud.jacobi import (
     jacobi_theta_init,
 )
 from gnn_fraud.jk import JumpingKnowledgeGCN
+from gnn_fraud.leconv import GraphLEConv, LEConvLayer, difference_sums
 from gnn_fraud.mixhop import GraphMixHop, MixHopLayer
 from gnn_fraud.pna import GraphPNA, PNALayer
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
@@ -106,6 +107,7 @@ from gnn_fraud.train import (
     train_hetero,
     train_jacobi,
     train_jk,
+    train_leconv,
     train_mixhop,
     train_pna,
     train_s2gc,
@@ -169,6 +171,9 @@ __all__ = [
     "GraphSAGE",
     "GraphTAG",
     "JacobiConv",
+    "LEConvLayer",
+    "GraphLEConv",
+    "difference_sums",
     "HeteroGenerator",
     "HeteroGraph",
     "RELATION_NAMES",
@@ -247,6 +252,7 @@ __all__ = [
     "train_hetero",
     "train_jacobi",
     "train_jk",
+    "train_leconv",
     "train_mixhop",
     "train_mlp",
     "train_pna",
