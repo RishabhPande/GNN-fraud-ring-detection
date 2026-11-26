@@ -74,6 +74,7 @@ from gnn_fraud.jacobi import (
 from gnn_fraud.jk import JumpingKnowledgeGCN
 from gnn_fraud.leconv import GraphLEConv, LEConvLayer, difference_sums
 from gnn_fraud.lightgcn import LightGCN, averaged_embeddings, embedding_powers
+from gnn_fraud.linkx import LINKX, adjacency_row, adjacency_rows
 from gnn_fraud.mixhop import GraphMixHop, MixHopLayer
 from gnn_fraud.pna import GraphPNA, PNALayer
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
@@ -110,6 +111,7 @@ from gnn_fraud.train import (
     train_jk,
     train_leconv,
     train_lightgcn,
+    train_linkx,
     train_mixhop,
     train_pna,
     train_s2gc,
@@ -177,6 +179,9 @@ __all__ = [
     "GraphLEConv",
     "difference_sums",
     "LightGCN",
+    "LINKX",
+    "adjacency_row",
+    "adjacency_rows",
     "averaged_embeddings",
     "embedding_powers",
     "HeteroGenerator",
@@ -259,6 +264,7 @@ __all__ = [
     "train_jk",
     "train_leconv",
     "train_lightgcn",
+    "train_linkx",
     "train_mixhop",
     "train_mlp",
     "train_pna",
