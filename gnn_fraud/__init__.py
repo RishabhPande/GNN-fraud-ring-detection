@@ -20,6 +20,7 @@ from gnn_fraud.chebii import (
     chebii_nodes,
     chebii_terms,
 )
+from gnn_fraud.cs import correct_and_smooth, correct_scores, smooth_scores
 from gnn_fraud.dagnn import DAGNN, hop_attention
 from gnn_fraud.edge_cls import (
     EdgeHead,
@@ -146,6 +147,9 @@ __all__ = [
     "chebii_gamma_init",
     "chebii_nodes",
     "chebii_terms",
+    "correct_and_smooth",
+    "correct_scores",
+    "smooth_scores",
     "DAGNN",
     "FiLMLayer",
     "GATLayer",
