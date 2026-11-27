@@ -4,7 +4,7 @@
 [![DOI](https://zenodo.org/badge/23749421.svg)](https://doi.org/10.5281/zenodo.23749421)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
-![Tests](https://img.shields.io/badge/tests-448%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-456%20passing-brightgreen)
 [![Tests](https://github.com/RishabhPande/GNN-fraud-ring-detection/actions/workflows/tests.yml/badge.svg)](https://github.com/RishabhPande/GNN-fraud-ring-detection/actions/workflows/tests.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/RishabhPande/GNN-fraud-ring-detection)
 
