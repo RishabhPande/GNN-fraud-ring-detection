@@ -77,6 +77,7 @@ from gnn_fraud.leconv import GraphLEConv, LEConvLayer, difference_sums
 from gnn_fraud.lightgcn import LightGCN, averaged_embeddings, embedding_powers
 from gnn_fraud.linkx import LINKX, adjacency_row, adjacency_rows
 from gnn_fraud.mixhop import GraphMixHop, MixHopLayer
+from gnn_fraud.pairnorm import GraphPairNormGCN, pairnorm, total_pairwise_sq_distance
 from gnn_fraud.pna import GraphPNA, PNALayer
 from gnn_fraud.rsage import RelSAGELayer, RelationalGraphSAGE
 from gnn_fraud.s2gc import S2GC, averaged_propagation, propagation_powers as s2gc_propagation_powers
@@ -115,6 +116,7 @@ from gnn_fraud.train import (
     train_lightgcn,
     train_linkx,
     train_mixhop,
+    train_pairnorm,
     train_pna,
     train_s2gc,
     train_sage,
@@ -178,6 +180,9 @@ __all__ = [
     "GraphMixHop",
     "GraphGenerator",
     "GraphPNA",
+    "GraphPairNormGCN",
+    "pairnorm",
+    "total_pairwise_sq_distance",
     "GraphSAGE",
     "GraphTAG",
     "GraphTransformerConv",
@@ -276,6 +281,7 @@ __all__ = [
     "train_linkx",
     "train_mixhop",
     "train_mlp",
+    "train_pairnorm",
     "train_pna",
     "train_s2gc",
     "train_sage",
